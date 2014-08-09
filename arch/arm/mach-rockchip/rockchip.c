@@ -82,15 +82,17 @@ static void __init rockchip_timer_init(void)
 //	rockchip_identify_soc();
 	of_clk_init(NULL);
 
-	/* enable timer7 for core */
-	timer7_base = ioremap(0xFF810000, 0x4000) + 0x20;
-	writel_relaxed(0, timer7_base + 0x10);
-	dsb();
-	writel_relaxed(0xFFFFFFFF, timer7_base + 0x00);
-	writel_relaxed(0xFFFFFFFF, timer7_base + 0x04);
-	dsb();
-	writel_relaxed(1, timer7_base + 0x10);
-	dsb();
+	if (of_machine_is_compatible("rockchip,rk3288")) {
+		/* enable timer7 for core */
+		timer7_base = ioremap(0xFF810000, 0x4000) + 0x20;
+		writel_relaxed(0, timer7_base + 0x10);
+		dsb();
+		writel_relaxed(0xFFFFFFFF, timer7_base + 0x00);
+		writel_relaxed(0xFFFFFFFF, timer7_base + 0x04);
+		dsb();
+		writel_relaxed(1, timer7_base + 0x10);
+		dsb();
+	}
 
 	clocksource_of_init();
 
@@ -102,8 +104,6 @@ static void __init rockchip_dt_init(void)
 	struct platform_device_info devinfo = { .name = "cpufreq-cpu0", };
 
 	rockchip_clocks_apply_init_table();
-
-//	l2x0_of_init(0, ~0UL);
 
 	of_platform_populate(NULL, of_default_bus_match_table, NULL, NULL);
 //	platform_device_register_full(&devinfo);
