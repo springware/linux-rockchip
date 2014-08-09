@@ -364,6 +364,6 @@ void __init rockchip_register_restart_notifier(unsigned int reg)
 	reg_restart = reg;
 	ret = register_restart_handler(&rockchip_restart_handler);
 	if (ret)
-		pr_err("%s: cannot register restart notifier, %d\n",
+		pr_err("%s: cannot register restart handler, %d\n",
 		       __func__, ret);
 }
