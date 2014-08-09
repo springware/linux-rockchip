@@ -19,6 +19,7 @@
 #include <dt-bindings/clock/rk3188-cru-common.h>
 #include "clk.h"
 
+#define RK3188_GRF_SOC_CON1	0xa4
 #define RK3188_GRF_SOC_STATUS	0xac
 
 enum rk3188_plls {
@@ -116,6 +117,9 @@ PNAME(mux_sclk_uart3_p)		= { "uart3_pre", "uart3_frac", "xin24m" };
 PNAME(mux_sclk_hsadc_p)		= { "hsadc_src", "hsadc_frac", "ext_hsadc" };
 PNAME(mux_mac_p)		= { "gpll", "dpll" };
 PNAME(mux_sclk_macref_p)	= { "mac_src", "ext_rmii" };
+//PNAME(mux_testclk_p)		= { "pclk_cpu", "hclk_peri", "dclk_lcdc0",
+//				    "sclk_uart0", "sclk_ddr", "hclk_vpu" };
+//PNAME(mux_aclk_vpu_p)		= { "aclk_vepu", "aclk_vdpu" };
 
 static struct rockchip_pll_clock rk3188_pll_clks[] __initdata = {
 	[apll] = PLL(pll_rk3066, PLL_APLL, "apll", mux_pll_p, 0, RK2928_PLL_CON(0),
@@ -210,6 +214,7 @@ static struct rockchip_clk_branch common_clk_branches[] __initdata = {
 			RK2928_CLKGATE_CON(3), 7, GFLAGS),
 	MUX(SCLK_CIF0, "sclk_cif0", mux_sclk_cif0_p, 0,
 			RK2928_CLKSEL_CON(29), 7, 1, MFLAGS),
+	//FIXME: CLKSEL_CON30[8]: add inverter
 
 	GATE(0, "pclkin_cif0", "ext_cif0", 0,
 			RK2928_CLKGATE_CON(3), 3, GFLAGS),
@@ -239,6 +244,7 @@ static struct rockchip_clk_branch common_clk_branches[] __initdata = {
 			RK2928_CLKGATE_CON(2), 7, 0, GFLAGS),
 	MUX(SCLK_HSADC, "sclk_hsadc", mux_sclk_hsadc_p, 0,
 			RK2928_CLKSEL_CON(22), 4, 2, MFLAGS),
+	// FIXME: add hsadc_inverter at CLKSEL22[7]
 
 	COMPOSITE_NOMUX(SCLK_SARADC, "sclk_saradc", "xin24m", 0,
 			RK2928_CLKSEL_CON(24), 8, 8, DFLAGS,
@@ -394,6 +400,10 @@ static struct rockchip_clk_branch common_clk_branches[] __initdata = {
 	GATE(PCLK_I2C4, "pclk_i2c4", "pclk_peri", 0, RK2928_CLKGATE_CON(8), 8, GFLAGS),
 	GATE(PCLK_GPIO3, "pclk_gpio3", "pclk_peri", 0, RK2928_CLKGATE_CON(8), 12, GFLAGS),
 	GATE(PCLK_SARADC, "pclk_saradc", "pclk_peri", 0, RK2928_CLKGATE_CON(7), 14, GFLAGS),
+
+//	COMPOSITE_NODIV(0, "testclk", mux_testclk_p, 0,
+//			RK2928_MISC_CON, 8, 3, MFLAGS,
+//			RK2928_CLKGATE_CON(0), 15, GFLAGS),
 };
 
 PNAME(mux_rk3066_lcdc0_p)	= { "dclk_lcdc0_src", "xin27m" };
@@ -440,6 +450,7 @@ static struct rockchip_clk_branch rk3066a_clk_branches[] __initdata = {
 			RK2928_CLKGATE_CON(3), 8, GFLAGS),
 	MUX(SCLK_CIF1, "sclk_cif1", mux_sclk_cif1_p, 0,
 			RK2928_CLKSEL_CON(29), 15, 1, MFLAGS),
+	//FIXME: CLKSEL_CON30[8]: add inverter
 
 	GATE(0, "pclkin_cif1", "ext_cif1", 0,
 			RK2928_CLKGATE_CON(3), 4, GFLAGS),
@@ -491,6 +502,9 @@ static struct rockchip_clk_branch rk3066a_clk_branches[] __initdata = {
 			RK2928_CLKGATE_CON(0), 14, GFLAGS),
 	MUX(SCLK_SPDIF, "sclk_spdif", mux_sclk_spdif_p, 0,
 			RK2928_CLKSEL_CON(5), 8, 2, MFLAGS),
+
+//	MUXGRF(0, "aclk_vpu", mux_aclk_vpu_p, 0,
+//			RK3066_GRF_SOC_CON1, 10, 1, MFLAGS), //anders
 
 	GATE(HCLK_I2S1, "hclk_i2s1", "hclk_cpu", 0, RK2928_CLKGATE_CON(7), 3, GFLAGS),
 	GATE(HCLK_I2S2, "hclk_i2s2", "hclk_cpu", 0, RK2928_CLKGATE_CON(7), 4, GFLAGS),
@@ -585,6 +599,9 @@ static struct rockchip_clk_branch rk3188_clk_branches[] __initdata = {
 	MUX(SCLK_SPDIF, "sclk_spdif", mux_sclk_spdif_p, 0,
 			RK2928_CLKSEL_CON(5), 8, 2, MFLAGS),
 
+//	MUXGRF(0, "aclk_vpu", mux_aclk_vpu_p, 0,
+//			RK3188_GRF_SOC_CON1, 10, 1, MFLAGS),
+
 	GATE(0, "hclk_imem0", "hclk_cpu", 0, RK2928_CLKGATE_CON(4), 14, GFLAGS),
 	GATE(0, "hclk_imem1", "hclk_cpu", 0, RK2928_CLKGATE_CON(4), 15, GFLAGS),
 
@@ -598,6 +615,34 @@ static struct rockchip_clk_branch rk3188_clk_branches[] __initdata = {
 
 	GATE(ACLK_GPS, "aclk_gps", "aclk_peri", 0, RK2928_CLKGATE_CON(8), 13, GFLAGS),
 };
+
+struct rockchip_clk_init_table rk3188_clk_init_tbl[] __initdata = {
+	{ "gpll", NULL, 891000000, 0 },
+	{ "cpll", NULL, 600000000, 0 },
+
+	{ "aclk_cpu", NULL, 300000000, 0 },
+
+	{ "hclk_cpu", NULL, 150000000, 0 },
+	{ "pclk_cpu", NULL,  75000000, 0 },
+	{ "hclk_ahb2apb", NULL, 75000000, 0 },
+
+	{ "aclk_peri_pre", "cpll", 150000000, 0 },
+
+	{ "hclk_peri", NULL, 150000000, 0 },
+	{ "pclk_peri", NULL,  75000000, 0 },
+
+	{ "sclk_sdmmc", NULL,  75000000, 0 },
+
+	{ "sclk_macref", NULL,  50000000, 0 },
+
+	/* FIXME: is this needed? */
+	{ "sclk_mac_lbtest", NULL, 0, 1 },
+};
+
+static void __init rk3188_clock_apply_init_table(void)
+{
+	rockchip_clk_init_from_table(rk3188_clk_init_tbl, ARRAY_SIZE(rk3188_clk_init_tbl));
+}
 
 static void __init rk3188_common_clk_init(struct device_node *np)
 {
@@ -646,6 +691,8 @@ static void __init rk3188a_clk_init(struct device_node *np)
 	rk3188_common_clk_init(np);
 	rockchip_clk_register_branches(rk3188_clk_branches,
 				  ARRAY_SIZE(rk3188_clk_branches));
+
+	rockchip_clk_apply_init_table = rk3188_clock_apply_init_table;
 }
 CLK_OF_DECLARE(rk3188a_cru, "rockchip,rk3188a-cru", rk3188a_clk_init);
 

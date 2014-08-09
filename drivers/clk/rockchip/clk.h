@@ -120,11 +120,17 @@ struct clk *rockchip_clk_register_pll(enum rockchip_pll_type pll_type,
 		struct rockchip_pll_rate_table *rate_table,
 		spinlock_t *lock);
 
+struct clk *rockchip_clk_register_cpuclk(const char *name,
+		const char **parent_names, unsigned int num_parents,
+		void __iomem *reg_base, struct device_node *np,
+		spinlock_t *lock);
+
 #define PNAME(x) static const char *x[] __initconst
 
 enum rockchip_clk_branch_type {
 	branch_composite,
 	branch_mux,
+	branch_muxgrf,
 	branch_divider,
 	branch_fraction_divider,
 	branch_gate,
@@ -277,6 +283,21 @@ struct rockchip_clk_branch {
 		.gate_offset	= -1,				\
 	}
 
+#define MUXGRF(_id, cname, pnames, f, o, s, w, mf)		\
+	{							\
+		.id		= _id,				\
+		.branch_type	= branch_muxgrf,		\
+		.name		= cname,			\
+		.parent_names	= pnames,			\
+		.num_parents	= ARRAY_SIZE(pnames),		\
+		.flags		= f,				\
+		.muxdiv_offset	= o,				\
+		.mux_shift	= s,				\
+		.mux_width	= w,				\
+		.mux_flags	= mf,				\
+		.gate_offset	= -1,				\
+	}
+
 #define DIV(_id, cname, pname, f, o, s, w, df)			\
 	{							\
 		.id		= _id,				\
@@ -329,6 +350,10 @@ void rockchip_clk_register_branches(struct rockchip_clk_branch *clk_list,
 				    unsigned int nr_clk);
 void rockchip_clk_register_plls(struct rockchip_pll_clock *pll_list,
 				unsigned int nr_pll, int grf_lock_offset);
+void rockchip_clk_register_armclk(unsigned int lookup_id,
+			const char *name, const char **parent_names,
+			unsigned int num_parents, void __iomem *reg_base,
+			struct device_node *np);
 
 #define ROCKCHIP_SOFTRST_HIWORD_MASK	BIT(0)
 
@@ -343,5 +368,25 @@ static inline void rockchip_register_softrst(struct device_node *np,
 {
 }
 #endif
+
+/**
+ * struct rockchip_clk_init_table - clock initialization table
+ * @name:	clock name to set
+ * @parent_name:parent clock name
+ * @rate:	rate to set
+ * @state:	enable/disable
+ */
+struct rockchip_clk_init_table {
+	const char	*name;
+	const char	*parent_name;
+	unsigned long	rate;
+	int		state;
+};
+
+void rockchip_clk_init_from_table(struct rockchip_clk_init_table *tbl,
+				  unsigned int nr_tbl);
+
+typedef void (*rockchip_clk_apply_init_table_func)(void);
+extern rockchip_clk_apply_init_table_func rockchip_clk_apply_init_table;
 
 #endif

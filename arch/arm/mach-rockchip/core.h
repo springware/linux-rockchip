@@ -18,3 +18,5 @@ extern char rockchip_secondary_trampoline_end;
 
 extern unsigned long rockchip_boot_fn;
 extern void rockchip_secondary_startup(void);
+
+extern void rockchip_clocks_apply_init_table(void);

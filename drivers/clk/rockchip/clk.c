@@ -23,6 +23,7 @@
 #include <linux/slab.h>
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
+#include <linux/clk/clk-conf.h>
 #include <linux/mfd/syscon.h>
 #include <linux/regmap.h>
 #include "clk.h"
@@ -126,6 +127,18 @@ void __init rockchip_clk_init(struct device_node *np, void __iomem *base,
 	of_clk_add_provider(np, of_clk_src_onecell_get, &clk_data);
 }
 
+/**
+ * Set clock-defaults again, after grf regmap is available for PLLs.
+ */
+static int __init rockchip_clk_set_defaults(void)
+{
+	if (cru_node)
+		return of_clk_set_defaults(cru_node, true);
+
+	return 0;
+}
+arch_initcall(rockchip_clk_set_defaults);
+
 struct regmap *rockchip_clk_get_grf(void)
 {
 	if (IS_ERR(grf))
@@ -197,6 +210,7 @@ void __init rockchip_clk_register_branches(
 					list->div_flags, &clk_lock);
 			break;
 		case branch_fraction_divider:
+		case branch_muxgrf:
 			/* unimplemented */
 			continue;
 			break;
@@ -241,4 +255,77 @@ void __init rockchip_clk_register_branches(
 
 		rockchip_clk_add_lookup(clk, list->id);
 	}
+}
+
+void __init rockchip_clk_register_armclk(unsigned int lookup_id,
+			const char *name, const char **parent_names,
+			unsigned int num_parents, void __iomem *reg_base,
+			struct device_node *np)
+{
+	struct clk *clk;
+
+	clk = rockchip_clk_register_cpuclk(name, parent_names, num_parents,
+					   reg_base, np, &clk_lock);
+	if (IS_ERR(clk)) {
+		pr_err("%s: failed to register clock %s: %ld\n",
+		       __func__, name, PTR_ERR(clk));
+		return;
+	}
+
+	rockchip_clk_add_lookup(clk, lookup_id);
+}
+
+void __init rockchip_clk_init_from_table(struct rockchip_clk_init_table *tbl,
+					 unsigned int nr_tbl)
+{
+	struct clk *clk;
+	unsigned int idx;
+
+	for (idx = 0; idx < nr_tbl; idx++, tbl++) {
+		clk = __clk_lookup(tbl->name);
+		if (!clk) {
+			pr_err("%s: Failed to find clock %s\n",
+			       __func__, tbl->name);
+			continue;
+		}
+
+		if (tbl->parent_name) {
+			struct clk *parent = __clk_lookup(tbl->parent_name);
+			pr_info("%s: setting parent of %s to %s\n", __func__, tbl->name, tbl->parent_name);
+			if (clk_set_parent(clk, parent)) {
+				pr_err("%s: Failed to set parent %s of %s\n",
+				       __func__, tbl->parent_name, tbl->name);
+				WARN_ON(1);
+			}
+		}
+
+		if (tbl->rate) {
+			pr_info("%s: setting rate of %s to %lu\n", __func__, tbl->name, tbl->rate);
+			if (clk_set_rate(clk, tbl->rate)) {
+				pr_err("%s: Failed to set rate %lu of %s\n",
+				       __func__, tbl->rate, tbl->name);
+				WARN_ON(1);
+			}
+		}
+
+		if (tbl->state) {
+			pr_info("%s: enabling %s\n", __func__, tbl->name);
+			if (clk_prepare_enable(clk)) {
+				pr_err("%s: Failed to enable %s\n", __func__,
+				       tbl->name);
+				WARN_ON(1);
+			}
+		}
+	}
+}
+
+rockchip_clk_apply_init_table_func rockchip_clk_apply_init_table;
+
+void __init rockchip_clocks_apply_init_table(void)
+{
+	if (!rockchip_clk_apply_init_table)
+		return;
+
+	pr_info("%s: applying initial clock settings\n", __func__);
+	rockchip_clk_apply_init_table();
 }
