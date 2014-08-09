@@ -17,6 +17,16 @@
 		reg = <0x0 0x80000000>;
 	};
 
+	vcc_sd0: sdmmc-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "sdmmc-supply";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&gpio7 11 GPIO_ACTIVE_LOW>;
+		startup-delay-us = <100000>;
+//		vin-supply = <&vcc_io>;
+	};
+
 	gpio-keys {
 		compatible = "gpio-keys";
 		#address-cells = <1>;
@@ -36,6 +46,11 @@
 		};
 	};
 
+	iio_hwmon@1 {
+		compatible = "iio-hwmon";
+		io-channels = <&saradc 0>, <&saradc 1>, <&saradc 2>;
+	};
+
 	/* This turns on USB vbus for both host0 (ehci) and host1 (dwc2) */
 	vcc_host: vcc-host-regulator {
 		compatible = "regulator-fixed";
@@ -50,6 +65,44 @@
 };
 
 &i2c0 {
+	status = "okay";
+};
+
+&sdmmc {
+	num-slots = <1>;
+	status = "okay";
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&sdmmc_clk &sdmmc_cmd &sdmmc_cd &sdmmc_bus4>;
+	vmmc-supply = <&vcc_sd0>;
+
+	slot@0 {
+		reg = <0>;
+		bus-width = <4>;
+		disable-wp;
+	};
+};
+
+&emmc {
+	num-slots = <1>;
+	status = "okay";
+
+	broken-cd;
+	non-removable;
+	supports-highspeed;
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&emmc_clk &emmc_cmd &emmc_pwr &emmc_bus8>;
+
+	slot@0 {
+		reg = <0>;
+		bus-width = <8>;
+		disable-wp;
+	};
+};
+
+
+&saradc {
 	status = "okay";
 };
 

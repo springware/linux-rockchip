@@ -30,6 +30,9 @@
 #include "stmmac.h"
 
 static const struct of_device_id stmmac_dt_ids[] = {
+#ifdef CONFIG_DWMAC_ROCKCHIP
+	{ .compatible = "rockchip,rk3288-gmac", .data = &rk3288_gmac_data},
+#endif
 #ifdef CONFIG_DWMAC_SUNXI
 	{ .compatible = "allwinner,sun7i-a20-gmac", .data = &sun7i_gmac_data},
 #endif

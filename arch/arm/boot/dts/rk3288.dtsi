@@ -39,6 +39,7 @@
 	cpus {
 		#address-cells = <1>;
 		#size-cells = <0>;
+//		enable-method = "rockchip,rk3288-smp";
 
 		cpu@500 {
 			device_type = "cpu";
@@ -62,6 +63,33 @@
 		};
 	};
 
+	amba {
+		compatible = "arm,amba-bus";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		dmac1: dma@ffb20000 {
+			compatible = "arm,pl330", "arm,primecell";
+			reg = <0xffb20000 0x4000>;
+			interrupts = <GIC_SPI 0 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 1 IRQ_TYPE_LEVEL_HIGH>;
+			#dma-cells = <1>;
+			clocks = <&cru ACLK_DMAC1>;
+			clock-names = "apb_pclk";
+		};
+
+		dmac2: dma@ff250000 {
+			compatible = "arm,pl330", "arm,primecell";
+			reg = <0xff250000 0x4000>;
+			interrupts = <GIC_SPI 2 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 3 IRQ_TYPE_LEVEL_HIGH>;
+			#dma-cells = <1>;
+			clocks = <&cru ACLK_DMAC2>;
+			clock-names = "apb_pclk";
+		};
+	};
+
 	xin24m: oscillator {
 		compatible = "fixed-clock";
 		clock-frequency = <24000000>;
@@ -76,6 +104,45 @@
 			     <GIC_PPI 11 (GIC_CPU_MASK_SIMPLE(4) | IRQ_TYPE_LEVEL_HIGH)>,
 			     <GIC_PPI 10 (GIC_CPU_MASK_SIMPLE(4) | IRQ_TYPE_LEVEL_HIGH)>;
 		clock-frequency = <24000000>;
+	};
+
+	sdmmc: dwmmc@ff0c0000 {
+		compatible = "rockchip,rk3288-dw-mshc";
+		reg = <0xff0c0000 0x4000>;
+		interrupts = <GIC_SPI 32 IRQ_TYPE_LEVEL_HIGH>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		clocks = <&cru HCLK_SDMMC>, <&cru SCLK_SDMMC>;
+		clock-names = "biu", "ciu";
+
+		//FIXME: necessary?
+		//fifo-depth = <0x100>;
+	};
+
+	emmc: dwmmc@ff0f0000 {
+		compatible = "rockchip,rk3288-dw-mshc";
+		reg = <0xff0f0000 0x4000>;
+		interrupts = <GIC_SPI 35 IRQ_TYPE_LEVEL_HIGH>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		clocks = <&cru HCLK_EMMC>, <&cru SCLK_EMMC>;
+		clock-names = "biu", "ciu";
+
+		fifo-depth = <0x100>;
+	};
+
+	saradc: saradc@ff100000 {
+		compatible = "rockchip,saradc";
+		reg = <0xff100000 0x100>;
+		interrupts = <GIC_SPI 36 IRQ_TYPE_LEVEL_HIGH>;
+		#io-channel-cells = <1>;
+
+		clock-frequency = <1000000>;
+		clocks = <&cru SCLK_SARADC>, <&cru PCLK_SARADC>;
+		clock-names = "saradc", "apb_pclk";
+		status = "disabled";
 	};
 
 	i2c1: i2c@ff140000 {
@@ -195,6 +262,21 @@
 		status = "disabled";
 	};
 
+	gmac: ethernet@ff290000 {
+		compatible = "rockchip,rk3288-gmac";
+		reg = <0xff290000 0x10000>;
+		interrupts = <GIC_SPI 27 IRQ_TYPE_LEVEL_HIGH>;
+		rockchip,grf = <&grf>;
+
+		//phy-mode = "rmii";
+		phy-mode = "rgmii";
+//		clocks = <&cru PCLK_GMAC>, <&gmac_tx>;
+		clock-names = "stmmaceth", "rockchip_gmac_aclk", "rockchip_gmac_tx", "rockchip_gmac_rx";
+//		clocks = <>;
+//		pinctrl-names = "default";
+//		pinctrl-0 = <&mac_clk &mac_txpins &mac_rxpins &mac_mdpins>;
+	};
+
 	i2c0: i2c@ff650000 {
 		compatible = "rockchip,rk3288-i2c";
 		reg = <0xff650000 0x1000>;
@@ -219,6 +301,24 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&i2c2_xfer>;
 		status = "disabled";
+	};
+
+	bus_intmem@ff700000 {
+		compatible = "mmio-sram";
+		reg = <0xff700000 0x18000>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <0 0xff700000 0x18000>;
+
+		smp-sram@0 {
+			compatible = "rockchip,rk3066-smp-sram";
+			reg = <0x10000 0x50>;
+		};
+	};
+
+	pmu_intmem@ff720000 {
+		compatible = "mmio-sram";
+		reg = <0xff720000 0x4000>;
 	};
 
 	pmu: power-management@ff730000 {
@@ -249,6 +349,7 @@
 		reg = <0xff800000 0x100>;
 		interrupts = <GIC_SPI 111 IRQ_TYPE_LEVEL_HIGH>;
 		status = "disabled";
+// watchdog pclk is controlled from SGRF_SOC_CON0[6]
 	};
 
 	usb_host0_ehci: usb@ff500000 {

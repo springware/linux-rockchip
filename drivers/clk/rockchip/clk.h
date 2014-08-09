@@ -354,6 +354,7 @@ void rockchip_clk_register_armclk(unsigned int lookup_id,
 			const char *name, const char **parent_names,
 			unsigned int num_parents, void __iomem *reg_base,
 			struct device_node *np);
+void rockchip_clk_protect_critical(const char *clocks[], int nclocks);
 
 #define ROCKCHIP_SOFTRST_HIWORD_MASK	BIT(0)
 

@@ -346,6 +346,7 @@ dtb-$(CONFIG_ARCH_QCOM) += \
 	qcom-msm8960-cdp.dtb
 dtb-$(CONFIG_ARCH_ROCKCHIP) += \
 	rk3066a-bqcurie2.dtb \
+	rk3188-mk908.dtb \
 	rk3188-radxarock.dtb \
 	rk3288-evb-act8846.dtb \
 	rk3288-evb-rk808.dtb

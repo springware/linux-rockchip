@@ -132,6 +132,13 @@ PNAME(mux_usbphy480m_p)		= { "sclk_otgphy0", "sclk_otgphy1",
 				    "sclk_otgphy2" };
 PNAME(mux_hsicphy480m_p)	= { "cpll", "gpll", "usbphy480m_src" };
 PNAME(mux_hsicphy12m_p)		= { "hsicphy12m_xin12m", "hsicphy12m_usbphy" };
+//PNAME(mux_aclk_vpu_p)	= { "aclk_vepu", "aclk_vdpu" };
+/*PNAME(mux_testclk_p) 	= { "aclk_peri", "armclk", "aclk_vio0", "ddrphy",
+			    "aclk_vcodec", "aclk_gpu", "aclk_rga", "xin24m",
+			    "xin27m", "xin32k", "sclk_wifi", "dclk_lcdc0",
+			    "dclk_lcdc1", "sclk_isp_jpe", "sclk_isp" };
+*/
+//PNAME(aclk_lcdc_iep_p)	= { "aclk_vio0", "aclk_vio1" };
 
 static struct rockchip_pll_clock rk3288_pll_clks[] __initdata = {
 	[apll] = PLL(pll_rk3066, PLL_APLL, "apll", mux_pll_p, 0, RK3288_PLL_CON(0),
@@ -296,6 +303,10 @@ static struct rockchip_clk_branch rk3288_clk_branches[] __initdata = {
 	COMPOSITE(0, "aclk_vdpu", mux_pll_src_cpll_gpll_usb480m_p, 0,
 			RK3288_CLKSEL_CON(32), 14, 2, MFLAGS, 8, 5, DFLAGS,
 			RK3288_CLKGATE_CON(3), 11, GFLAGS),
+//	MUXGRF(0, "aclk_vpu", mux_aclk_vpu_p, 0,
+//			RK3288_GRF_SOC_CON(0), 7, 1, MFLAGS),
+//	GATE(0, "hclk_vpu", "aclk_vpu", 0,
+//			RK3288_CLKGATE_CON(13), 4, GFLAGS),
 
 	COMPOSITE(0, "aclk_vio0", mux_pll_src_cpll_gpll_usb480m_p, 0,
 			RK3288_CLKSEL_CON(31), 6, 2, MFLAGS, 0, 5, DFLAGS,
@@ -503,6 +514,7 @@ static struct rockchip_clk_branch rk3288_clk_branches[] __initdata = {
 			RK3288_CLKGATE_CON(2), 6, GFLAGS),
 	MUX(SCLK_HSADC, "sclk_hsadc_out", mux_hsadcout_p, 0,
 			RK3288_CLKSEL_CON(22), 4, 1, MFLAGS),
+	//FIXME: add inverter  as sclk_hsadc (from hsadc_out and hsadc_inv, in <CLKSEL_CON(22), 7, 1>
 
 	GATE(0, "jtag", "ext_jtag", 0,
 			RK3288_CLKGATE_CON(4), 14, GFLAGS),
@@ -617,6 +629,10 @@ static struct rockchip_clk_branch rk3288_clk_branches[] __initdata = {
 	GATE(0, "sclk_pvtm_gpu", "xin24m", 0, RK3288_CLKGATE_CON(5), 10, GFLAGS),
 	GATE(0, "sclk_mipidsi_24m", "xin24m", 0, RK3288_CLKGATE_CON(5), 15, GFLAGS),
 
+	/* xclk_vcodec gates */
+//	GATE(0, "aclk_vcodec", "aclk_vpu", 0, RK3288_CLKGATE_CON(9), 0, GFLAGS),
+//	GATE(0, "hclk_vcodec", "hclk_vpu", 0, RK3288_CLKGATE_CON(9), 1, GFLAGS),
+
 	/* sclk_gpu gates */
 	GATE(ACLK_GPU, "aclk_gpu", "sclk_gpu", 0, RK3288_CLKGATE_CON(18), 0, GFLAGS),
 
@@ -677,7 +693,39 @@ static struct rockchip_clk_branch rk3288_clk_branches[] __initdata = {
 	 */
 
 	GATE(0, "pclk_vip_in", "ext_vip", 0, RK3288_CLKGATE_CON(16), 0, GFLAGS),
+	/* FIXME + inverter in clksel29_con <4 1>; */
+
 	GATE(0, "pclk_isp_in", "ext_isp", 0, RK3288_CLKGATE_CON(16), 3, GFLAGS),
+	/* FIXME + inverter in clksel29_con <3 1>; */
+
+/*	MUX(0, "testclk_src", mux_testclk_p, 0,
+			RK3288_MISC_CON, 8, 4, MFLAGS),
+	COMPOSITE_NOMUX(0, "testclk", "testclk_src", 0,
+			RK3288_CLKSEL_CON(2), 8, 5, DFLAGS,
+			RK3288_CLKGATE_CON(4), 15, GFLAGS),*/
+
+//	MUXGRF(0, "aclk_lcdc_iep_src", aclk_lcdc_iep_p, 0,
+//			RK3288_GRF_SOC_CON(6), 2, 1, MFLAGS),
+//	GATE(0, "aclk_lcdc_iep", "aclk_lcdc_iep_src", 0,
+//			RK3288_CLKGATE_CON(15), 4, GFLAGS),
+
+	//FIXME: these are source from dummy fixed clocks in the upstream source
+	//FIXME: what are they and where are they really sourced from?
+/*	GATE(0, "hclk_hsadc_0_tsp", "dummy", 0,
+			RK3288_CLKGATE_CON(8), 9, GFLAGS),
+	GATE(0, "hclk_hsadc_1_tsp", "dummy", 0,
+			RK3288_CLKGATE_CON(8), 10, GFLAGS),
+	GATE(0, "sclk_tsp_27m", "xin27m", 0,
+			RK3288_CLKGATE_CON(8), 11, GFLAGS),*/
+
+	//FIXME supposed to be only for tests, so remove
+//	COMPOSITE_FRAC(0, "wifi_frac", "wifi_src", 0, RK3288_CLKSEL_CON(23), 0,
+//			RK3288_CLKGATE_CON(13), 12, GFLAGS),
+};
+
+static const char *rk3288_critical_clocks[] __initconst = {
+	"aclk_cpu",
+	"aclk_peri",
 };
 
 static void __init rk3288_clk_init(struct device_node *np)
@@ -710,6 +758,11 @@ static void __init rk3288_clk_init(struct device_node *np)
 				   RK3288_GRF_SOC_STATUS);
 	rockchip_clk_register_branches(rk3288_clk_branches,
 				  ARRAY_SIZE(rk3288_clk_branches));
+	rockchip_clk_protect_critical(rk3288_critical_clocks,
+				      ARRAY_SIZE(rk3288_critical_clocks));
+
+//	rockchip_clk_register_armclk(SCLK_ARMCLK, "armclk", mux_armclk_p,
+//				     ARRAY_SIZE(mux_armclk_p), reg_base, np);
 
 	rockchip_register_softrst(np, 9, reg_base + RK3288_SOFTRST_CON(0),
 				  ROCKCHIP_SOFTRST_HIWORD_MASK);

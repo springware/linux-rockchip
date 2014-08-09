@@ -317,6 +317,31 @@ static const struct rockchip_cpuclk_soc_data rk3188_cpuclk_soc_data = {
 	.clk_cb = rk3188_cpuclk_notifier_cb,
 };
 
+#define RK3288_DIV_CORE_SHIFT		8
+#define RK3288_DIV_CORE_MASK		0x1f
+#define RK3288_MUX_CORE_SHIFT		15
+
+static unsigned long rockchip_rk3288_cpuclk_recalc_rate(struct clk_hw *hw,
+				unsigned long parent_rate)
+{
+	struct rockchip_cpuclk *cpuclk = to_rockchip_cpuclk_hw(hw);
+	u32 clksel0 = readl_relaxed(cpuclk->reg_base + RK3288_CLKSEL_CON(0));
+
+	clksel0 >>= RK3288_DIV_CORE_SHIFT;
+	clksel0 &= RK3288_DIV_CORE_MASK;
+	return parent_rate / (clksel0 + 1);
+}
+
+static const struct clk_ops rk3288_cpuclk_ops = {
+	.recalc_rate = rockchip_rk3288_cpuclk_recalc_rate,
+};
+
+static const struct rk2928_reg_data rk3288_data = {
+	.div_core_shift = RK3288_DIV_CORE_SHIFT,
+	.div_core_mask = RK3288_DIV_CORE_MASK,
+	.mux_core_shift = RK3288_MUX_CORE_SHIFT,
+};
+
 static const struct of_device_id rockchip_clock_ids_cpuclk[] = {
 	{ .compatible = "rockchip,rk2928-cru",
 			.data = &rk2928_cpuclk_soc_data, },

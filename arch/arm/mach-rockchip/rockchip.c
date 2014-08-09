@@ -77,8 +77,21 @@ static void __init rockchip_identify_soc(void)
 
 static void __init rockchip_timer_init(void)
 {
-	rockchip_identify_soc();
+	void __iomem *timer7_base;
+
+//	rockchip_identify_soc();
 	of_clk_init(NULL);
+
+	/* enable timer7 for core */
+	timer7_base = ioremap(0xFF810000, 0x4000) + 0x20;
+	writel_relaxed(0, timer7_base + 0x10);
+	dsb();
+	writel_relaxed(0xFFFFFFFF, timer7_base + 0x00);
+	writel_relaxed(0xFFFFFFFF, timer7_base + 0x04);
+	dsb();
+	writel_relaxed(1, timer7_base + 0x10);
+	dsb();
+
 	clocksource_of_init();
 
 //cclk_summary_show(NULL);

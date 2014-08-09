@@ -16,3 +16,15 @@
 / {
 	compatible = "rockchip,rk3288-evb-rk808", "rockchip,rk3288";
 };
+
+&i2c0 {
+	rk808: rk808@1b {
+		compatible = "rockchip,rk808";
+		reg = <0x1b>;
+
+		interrupt-parent = <&gpio0>;
+		interrupts = <4 IRQ_TYPE_EDGE_FALLING>; /* gpio0_a */
+
+		gpios = <&gpio0 0 0>; /* pmic_sleep */
+	};
+};

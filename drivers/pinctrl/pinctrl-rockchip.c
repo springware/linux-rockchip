@@ -477,9 +477,16 @@ static int rockchip_set_mux(struct rockchip_pin_bank *bank, int pin, int mux)
 
 	spin_lock_irqsave(&bank->slock, flags);
 
-	data = (mask << (bit + 16));
-	data |= (mux & mask) << bit;
-	ret = regmap_write(regmap, reg, data);
+	/* PMU iomux registers on rk3288 need to update the register value */
+	if (bank->iomux[iomux_num].type & IOMUX_SOURCE_PMU
+				&& info->ctrl->type == RK3288) {
+		data = (mux & mask) << bit;
+		ret = regmap_update_bits(regmap, reg, (mask << bit), data);
+	} else {
+		data = (mask << (bit + 16));
+		data |= (mux & mask) << bit;
+		ret = regmap_write(regmap, reg, data);
+	}
 
 	spin_unlock_irqrestore(&bank->slock, flags);
 
@@ -633,7 +640,7 @@ static int rk3288_set_drive(struct rockchip_pin_bank *bank, int pin_num,
 	struct rockchip_pinctrl *info = bank->drvdata;
 	struct regmap *regmap;
 	unsigned long flags;
-	int reg, ret, i;
+	int reg, ret, i, mask;
 	u32 data;
 	u8 bit;
 
@@ -655,11 +662,17 @@ static int rk3288_set_drive(struct rockchip_pin_bank *bank, int pin_num,
 
 	spin_lock_irqsave(&bank->slock, flags);
 
-	/* enable the write to the equivalent lower bits */
-	data = ((1 << RK3288_DRV_BITS_PER_PIN) - 1) << (bit + 16);
-	data |= (ret << bit);
+	mask = (1 << RK3288_DRV_BITS_PER_PIN) - 1;
 
-	ret = regmap_write(regmap, reg, data);
+	if (bank->bank_num == 0) {
+		ret = regmap_update_bits(regmap, reg, mask << bit, ret << bit);
+	} else {
+		/* enable the write to the equivalent lower bits */
+		data = mask << (bit + 16);
+		data |= ret << bit;
+		ret = regmap_write(regmap, reg, data);
+	}
+
 	spin_unlock_irqrestore(&bank->slock, flags);
 
 	return ret;
@@ -719,7 +732,7 @@ static int rockchip_set_pull(struct rockchip_pin_bank *bank,
 	struct rockchip_pinctrl *info = bank->drvdata;
 	struct rockchip_pin_ctrl *ctrl = info->ctrl;
 	struct regmap *regmap;
-	int reg, ret;
+	int reg, ret, mask;
 	unsigned long flags;
 	u8 bit;
 	u32 data;
@@ -748,8 +761,8 @@ static int rockchip_set_pull(struct rockchip_pin_bank *bank,
 	case RK3288:
 		spin_lock_irqsave(&bank->slock, flags);
 
-		/* enable the write to the equivalent lower bits */
-		data = ((1 << RK3188_PULL_BITS_PER_PIN) - 1) << (bit + 16);
+		data = 0;
+		mask = (1 << RK3188_PULL_BITS_PER_PIN) - 1;
 
 		switch (pull) {
 		case PIN_CONFIG_BIAS_DISABLE:
@@ -770,7 +783,14 @@ static int rockchip_set_pull(struct rockchip_pin_bank *bank,
 			return -EINVAL;
 		}
 
-		ret = regmap_write(regmap, reg, data);
+		if (bank->bank_num == 0 && info->ctrl->type == RK3288) {
+			ret = regmap_update_bits(regmap, reg,
+						 (mask << bit), data);
+		} else {
+			/* enable the write to the equivalent lower bits */
+			data |= mask << (bit + 16);
+			ret = regmap_write(regmap, reg, data);
+		}
 
 		spin_unlock_irqrestore(&bank->slock, flags);
 		break;
