@@ -166,9 +166,7 @@ static int amba_get_enable_pclk(struct amba_device *pcdev)
 
 static void amba_put_disable_pclk(struct amba_device *pcdev)
 {
-//disabled until we have our clocks under control
-//because otherwise the probing hangs the system
-//	clk_disable_unprepare(pcdev->pclk);
+	clk_disable_unprepare(pcdev->pclk);
 	clk_put(pcdev->pclk);
 }
 
