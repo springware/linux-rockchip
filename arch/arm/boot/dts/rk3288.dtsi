@@ -69,7 +69,8 @@
 		#size-cells = <1>;
 		ranges;
 
-		dmac1: dma@ffb20000 {
+		/* dma1 in secure state */
+		dma-controller@ffb20000 {
 			compatible = "arm,pl330", "arm,primecell";
 			reg = <0xffb20000 0x4000>;
 			interrupts = <GIC_SPI 0 IRQ_TYPE_LEVEL_HIGH>,
@@ -77,9 +78,22 @@
 			#dma-cells = <1>;
 			clocks = <&cru ACLK_DMAC1>;
 			clock-names = "apb_pclk";
+			status = "disabled";
 		};
 
-		dmac2: dma@ff250000 {
+		/* dma1 in non-secure state */
+		dma-controller@ffb60000 {
+			compatible = "arm,pl330", "arm,primecell";
+			reg = <0xffb60000 0x4000>;
+			interrupts = <GIC_SPI 0 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 1 IRQ_TYPE_LEVEL_HIGH>;
+			#dma-cells = <1>;
+			clocks = <&cru ACLK_DMAC1>;
+			clock-names = "apb_pclk";
+			status = "disabled";
+		};
+
+		dmac2: dma-controller@ff250000 {
 			compatible = "arm,pl330", "arm,primecell";
 			reg = <0xff250000 0x4000>;
 			interrupts = <GIC_SPI 2 IRQ_TYPE_LEVEL_HIGH>,

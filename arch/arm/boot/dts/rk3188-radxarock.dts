@@ -29,6 +29,13 @@
 		};
 	};
 
+	amba {
+		/* dma1 in secure state */
+		dmac1: dma-controller@20018000 {
+			status = "okay";
+		};
+	};
+
 	gpio-keys {
 		compatible = "gpio-keys";
 		#address-cells = <1>;
