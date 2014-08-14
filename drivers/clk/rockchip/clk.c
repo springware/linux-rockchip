@@ -298,6 +298,19 @@ void __init rockchip_clk_register_branches(
 	}
 }
 
+void __init rockchip_clk_protect_critical(const char *clocks[], int nclocks)
+{
+	int i;
+
+	/* Protect the clocks that needs to stay on */
+	for (i = 0; i < nclocks; i++) {
+		struct clk *clk = __clk_lookup(clocks[i]);
+
+		if (clk)
+			clk_prepare_enable(clk);
+	}
+}
+
 static unsigned int reg_restart;
 static int rockchip_restart_notify(struct notifier_block *this,
 				   unsigned long mode, void *cmd)
