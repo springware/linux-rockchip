@@ -101,12 +101,10 @@ static void __init rockchip_timer_init(void)
 
 static void __init rockchip_dt_init(void)
 {
-	struct platform_device_info devinfo = { .name = "cpufreq-cpu0", };
-
 	rockchip_clocks_apply_init_table();
 
 	of_platform_populate(NULL, of_default_bus_match_table, NULL, NULL);
-//	platform_device_register_full(&devinfo);
+	platform_device_register_simple("cpufreq-cpu0", 0, NULL, 0);
 }
 
 static const char * const rockchip_board_dt_compat[] = {
