@@ -10,8 +10,27 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  *
- * This file contains the utility functions to register the cpu clocks
- * for rockchip platforms.
+ * This file contains the utility function to register CPU clock for Samsung
+ * Exynos platforms. A CPU clock is defined as a clock supplied to a CPU or a
+ * group of CPUs. The CPU clock is typically derived from a hierarchy of clock
+ * blocks which includes mux and divider blocks. There are a number of other
+ * auxiliary clocks supplied to the CPU domain such as the debug blocks and AXI
+ * clock for CPU domain. The rates of these auxiliary clocks are related to the
+ * CPU clock rate and this relation is usually specified in the hardware manual
+ * of the SoC or supplied after the SoC characterization.
+ *
+ * The below implementation of the CPU clock allows the rate changes of the CPU
+ * clock and the corresponding rate changes of the auxillary clocks of the CPU
+ * domain. The platform clock driver provides a clock register configuration
+ * for each configurable rate which is then used to program the clock hardware
+ * registers to acheive a fast co-oridinated rate change for all the CPU domain
+ * clocks.
+ *
+ * On a rate change request for the CPU clock, the rate change is propagated
+ * upto the PLL supplying the clock to the CPU domain clock blocks. While the
+ * CPU domain PLL is reconfigured, the CPU domain clocks are driven using an
+ * alternate clock source. If required, the alternate clock source is divided
+ * down in order to keep the output clock rate within the previous OPP limits.
  */
 
 #include <linux/of.h>
@@ -21,79 +40,138 @@
 #include "clk.h"
 
 /**
- * struct samsung_cpuclk: information about clock supplied to a CPU core.
+ * struct rockchip_cpuclk: information about clock supplied to a CPU core.
  * @hw:		handle between ccf and cpu clock.
  * @alt_parent:	alternate parent clock to use when switching the speed
  *		of the primary parent clock.
- * @reg:	base register for cpu-clock values.
+ * @reg_base:	base register for cpu-clock values.
  * @clk_nb:	clock notifier registered for changes in clock speed of the
  *		primary parent clock.
- * @data:	optional data which the acutal instantiation of this clock
- *		can use.
+ * @rate_count:	number of rates in the rate_table
+ * @rate_table:	pll-rates and their associated dividers
+ * @reg_data:	cpu-specific register settings
+ * @lock:	clock lock
  */
 struct rockchip_cpuclk {
-	struct clk_hw		hw;
-	struct clk		*alt_parent;
-	void __iomem		*reg_base;
-	struct notifier_block	clk_nb;
-	void			*data;
-	spinlock_t		*lock;
+	struct clk_hw				hw;
+	struct clk				*alt_parent;
+	void __iomem				*reg_base;
+	struct notifier_block			clk_nb;
+	unsigned int				rate_count;
+	struct rockchip_cpuclk_rate_table	*rate_table;
+	const struct rockchip_cpuclk_reg_data	*reg_data;
+	spinlock_t				*lock;
 };
 
 #define to_rockchip_cpuclk_hw(hw) container_of(hw, struct rockchip_cpuclk, hw)
 #define to_rockchip_cpuclk_nb(nb) \
 			container_of(nb, struct rockchip_cpuclk, clk_nb)
 
-/**
- * struct rockchip_cpuclk_soc_data: soc specific data for cpu clocks.
- * @parser:	pointer to a function that can parse SoC specific data.
- * @ops:	clock operations to be used for this clock.
- * @clk_cb:	the clock notifier callback to be called for changes in the
- *		clock rate of the primary parent clock.
- *
- * This structure provides SoC specific data for ARM clocks. Based on
- * the compatible value of the clock controller node, the value of the
- * fields in this structure can be populated.
- */
-struct rockchip_cpuclk_soc_data {
-	int			(*parser)(struct device_node *, void **);
-	const struct clk_ops	*ops;
-	int (*clk_cb)(struct notifier_block *nb, unsigned long evt, void *data);
-};
-
-static unsigned long _calc_div(unsigned long prate, unsigned long drate)
+static const struct rockchip_cpuclk_rate_table *rockchip_get_cpuclk_settings(
+			    struct rockchip_cpuclk *cpuclk, unsigned long rate)
 {
-	unsigned long div = prate / drate;
-	return (!(prate % drate)) ? div-- : div;
+	const struct rockchip_cpuclk_rate_table *rate_table =
+							cpuclk->rate_table;
+	int i;
+
+	for (i = 0; i < cpuclk->rate_count; i++) {
+		if (rate == rate_table[i].prate)
+			return &rate_table[i];
+	}
+
+	return NULL;
 }
 
-/**
- * struct rk2928_cpuclk_data: config data for rk2928/rk3066/rk3188 cpu clocks.
- * @prate:	frequency of the parent clock.
- * @clksel0:	value to be programmed in the clksel0 register.
- * @clksel1:	value to be programmed in the clksel1 register.
- *
- * This structure holds the divider configuration data for for core clocks
- * directly depending on the cpu clockspeed. The parent frequency at which
- * these values are vaild is specified in @prate.
- */
-struct rk2928_cpuclk_data {
-	unsigned long		prate;
-	u32			clksel0;
-	u32			clksel1;
+static unsigned long rockchip_cpuclk_recalc_rate(struct clk_hw *hw,
+					unsigned long parent_rate)
+{
+	struct rockchip_cpuclk *cpuclk = to_rockchip_cpuclk_hw(hw);
+	const struct rockchip_cpuclk_reg_data *reg_data = cpuclk->reg_data;
+	u32 clksel0 = readl_relaxed(cpuclk->reg_base + reg_data->core_reg);
+
+	clksel0 >>= reg_data->div_core_shift;
+	clksel0 &= reg_data->div_core_mask;
+	return parent_rate / (clksel0 + 1);
+}
+
+static const struct clk_ops rockchip_cpuclk_ops = {
+	.recalc_rate = rockchip_cpuclk_recalc_rate,
 };
 
-/**
- * struct rk2928_reg_data: describes register offsets and masks of the cpuclock
- * @div_core_shift:	core divider offset used to divider the pll value
- * @div_core_mask:	core divider mask
- * @mux_core_shift:	offset of the core multiplexer
- */
-struct rk2928_reg_data {
-	u8		div_core_shift;
-	u32		div_core_mask;
-	u8		mux_core_shift;
-};
+static int rockchip_cpuclk_pre_rate_change(struct rockchip_cpuclk *cpuclk,
+					   struct clk_notifier_data *ndata)
+{
+	const struct rockchip_cpuclk_reg_data *reg_data = cpuclk->reg_data;
+	const struct rockchip_cpuclk_rate_table *rate;
+	unsigned long alt_prate, alt_div;
+	int i;
+
+	rate = rockchip_get_cpuclk_settings(cpuclk, ndata->new_rate);
+	if (!rate) {
+		pr_err("%s: Invalid rate : %lu for cpuclk\n",
+		       __func__, ndata->new_rate);
+		return -EINVAL;
+	}
+
+	alt_prate = clk_get_rate(cpuclk->alt_parent);
+
+	spin_lock(cpuclk->lock);
+
+	/*
+	 * If the old parent clock speed is less than the clock speed
+	 * of the alternate parent, then it should be ensured that at no point
+	 * the armclk speed is more than the old_rate until the dividers are
+	 * set.
+	 */
+	if (alt_prate > ndata->old_rate) {
+		alt_div =  DIV_ROUND_UP(alt_prate, ndata->old_rate) - 1;
+		WARN_ON(alt_div >= reg_data->div_core_mask);
+
+pr_info("%s: setting div %lu as alt-rate %lu > old-rate %lu\n", __func__, alt_div, alt_prate, ndata->old_rate);
+		writel_relaxed(HIWORD_UPDATE(alt_div,
+					     reg_data->div_core_mask,
+					     reg_data->div_core_shift),
+			      cpuclk->reg_base + reg_data->core_reg);
+	}
+
+	/* select alternate parent */
+	writel(HIWORD_UPDATE(1, 1, reg_data->mux_core_shift),
+	       cpuclk->reg_base + reg_data->core_reg);
+
+	/* alternate parent is active now. set the dividers */
+	for (i = 0; i < ROCKCHIP_CPUCLK_NUM_DIVIDERS; i++) {
+		const struct rockchip_cpuclk_clksel *clksel = &rate->divs[i];
+
+		if (!clksel->reg)
+			continue;
+
+pr_info("%s: setting reg 0x%x to 0x%x\n", __func__, clksel->reg, clksel->val);
+		writel(clksel->val , cpuclk->reg_base + clksel->reg);
+	}
+
+	spin_unlock(cpuclk->lock);
+	return 0;
+}
+
+static int rockchip_cpuclk_post_rate_change(struct rockchip_cpuclk *cpuclk,
+					    struct clk_notifier_data *ndata)
+{
+	const struct rockchip_cpuclk_reg_data *reg_data = cpuclk->reg_data;
+
+	spin_lock(cpuclk->lock);
+
+	/* post-rate change event, re-mux back to primary parent */
+	writel(HIWORD_UPDATE(0, 1, reg_data->mux_core_shift),
+	       cpuclk->reg_base + RK2928_CLKSEL_CON(0));
+
+	/* remove any core dividers */
+	writel(HIWORD_UPDATE(0, reg_data->div_core_mask,
+			     reg_data->div_core_shift),
+	       cpuclk->reg_base + RK2928_CLKSEL_CON(0));
+
+	spin_unlock(cpuclk->lock);
+	return 0;
+}
 
 /*
  * This clock notifier is called when the frequency of the parent clock
@@ -101,296 +179,40 @@ struct rk2928_reg_data {
  * the divider clocks, remux to temporary parent and handling the safe
  * frequency levels when using temporary parent.
  */
-static int rk2928_cpuclk_common_notifier_cb(struct notifier_block *nb,
-					unsigned long event, void *data,
-					const struct rk2928_reg_data *reg_data)
+static int rockchip_cpuclk_notifier_cb(struct notifier_block *nb,
+					unsigned long event, void *data)
 {
 	struct clk_notifier_data *ndata = data;
 	struct rockchip_cpuclk *cpuclk = to_rockchip_cpuclk_nb(nb);
-	struct rk2928_cpuclk_data *cpuclk_data = cpuclk->data;
-	unsigned long alt_prate, alt_div;
+	int ret = 0;
 
-	if (!cpuclk_data)
-		return NOTIFY_BAD;
+pr_info("%s: event %lu, old_rate %lu, new_rate: %lu\n", __func__, event, ndata->old_rate, ndata->new_rate);
+	if (event == PRE_RATE_CHANGE)
+		ret = rockchip_cpuclk_pre_rate_change(cpuclk, ndata);
+	else if (event == POST_RATE_CHANGE)
+		ret = rockchip_cpuclk_post_rate_change(cpuclk, ndata);
 
-	switch (event) {
-	case PRE_RATE_CHANGE:
-		alt_prate = clk_get_rate(cpuclk->alt_parent);
-
-		/* pre-rate change. find out the divider values */
-		while (cpuclk_data->prate != ndata->new_rate) {
-			if (cpuclk_data->prate == 0)
-				return NOTIFY_BAD;
-			cpuclk_data++;
-		}
-
-		/*
-		 * if the new and old parent clock speed is less than the
-		 * clock speed of the alternate parent, then it should be
-		 * ensured that at no point the cpuclk speed is more than
-		 * the old_prate until the dividers are set.
-		 */
-		if (ndata->old_rate < alt_prate &&
-					ndata->new_rate < alt_prate) {
-			alt_div = _calc_div(alt_prate, ndata->old_rate);
-			writel_relaxed(HIWORD_UPDATE(alt_div,
-						     reg_data->div_core_mask,
-						     reg_data->div_core_shift),
-				      cpuclk->reg_base + RK2928_CLKSEL_CON(0));
-		}
-
-		/* mux to alternate parent */
-		writel(HIWORD_UPDATE(1, 1, reg_data->mux_core_shift),
-		       cpuclk->reg_base + RK2928_CLKSEL_CON(0));
-
-		/* set new divider values for depending clocks */
-		writel(cpuclk_data->clksel0,
-		       cpuclk->reg_base + RK2928_CLKSEL_CON(0));
-		writel_relaxed(cpuclk_data->clksel1,
-		       cpuclk->reg_base + RK2928_CLKSEL_CON(1));
-		break;
-	case POST_RATE_CHANGE:
-		/* post-rate change event, re-mux back to primary parent */
-		writel(HIWORD_UPDATE(0, 1, reg_data->mux_core_shift),
-		       cpuclk->reg_base + RK2928_CLKSEL_CON(0));
-
-		/* remove any core dividers */
-		writel(HIWORD_UPDATE(0, reg_data->div_core_mask,
-				     reg_data->div_core_shift),
-		       cpuclk->reg_base + RK2928_CLKSEL_CON(0));
-		break;
-	}
-
-	return NOTIFY_OK;
+	return notifier_from_errno(ret);
 }
 
-#define RK2928_DIV_CORE_SHIFT		0
-#define RK2928_DIV_CORE_MASK		0x1f
-#define RK2928_MUX_CORE_SHIFT		7
-
-static unsigned long rockchip_rk2928_cpuclk_recalc_rate(struct clk_hw *hw,
-				unsigned long parent_rate)
-{
-	struct rockchip_cpuclk *cpuclk = to_rockchip_cpuclk_hw(hw);
-	u32 clksel0 = readl_relaxed(cpuclk->reg_base + RK2928_CLKSEL_CON(0));
-
-	clksel0 >>= RK2928_DIV_CORE_SHIFT;
-	clksel0 &= RK2928_DIV_CORE_MASK;
-	return parent_rate / (clksel0 + 1);
-}
-
-static const struct clk_ops rk2928_cpuclk_ops = {
-	.recalc_rate = rockchip_rk2928_cpuclk_recalc_rate,
-};
-
-static const struct rk2928_reg_data rk2928_data = {
-	.div_core_shift = RK2928_DIV_CORE_SHIFT,
-	.div_core_mask = RK2928_DIV_CORE_MASK,
-	.mux_core_shift = RK2928_MUX_CORE_SHIFT,
-};
-
-static int rk2928_cpuclk_notifier_cb(struct notifier_block *nb,
-				     unsigned long event, void *data)
-{
-	return rk2928_cpuclk_common_notifier_cb(nb, event, data, &rk2928_data);
-}
-
-static const struct rockchip_cpuclk_soc_data rk2928_cpuclk_soc_data = {
-	.ops = &rk2928_cpuclk_ops,
-	.clk_cb = rk2928_cpuclk_notifier_cb,
-};
-
-#define RK3066_MUX_CORE_SHIFT		8
-
-static const struct rk2928_reg_data rk3066_data = {
-	.div_core_shift = RK2928_DIV_CORE_SHIFT,
-	.div_core_mask = RK2928_DIV_CORE_MASK,
-	.mux_core_shift = RK3066_MUX_CORE_SHIFT,
-};
-
-static int rk3066_cpuclk_notifier_cb(struct notifier_block *nb,
-				     unsigned long event, void *data)
-{
-	return rk2928_cpuclk_common_notifier_cb(nb, event, data, &rk3066_data);
-}
-
-static const struct rockchip_cpuclk_soc_data rk3066_cpuclk_soc_data = {
-	.ops = &rk2928_cpuclk_ops,
-	.clk_cb = rk3066_cpuclk_notifier_cb,
-};
-
-#define RK3188_DIV_CORE_SHIFT		9
-#define RK3188_DIV_CORE_MASK		0x1f
-#define RK3188_MUX_CORE_SHIFT		8
-#define RK3188_DIV_CORE_PERIPH_MASK	0x3
-#define RK3188_DIV_CORE_PERIPH_SHIFT	6
-#define RK3188_DIV_ACLK_CORE_MASK	0x7
-#define RK3188_DIV_ACLK_CORE_SHIFT	3
-
-#define RK3188_CLKSEL0(div_core_periph) \
-		HIWORD_UPDATE(div_core_periph, RK3188_DIV_CORE_PERIPH_MASK,\
-				 RK3188_DIV_CORE_PERIPH_SHIFT)
-#define RK3188_CLKSEL1(div_aclk_core) \
-		HIWORD_UPDATE(div_aclk_core, RK3188_DIV_ACLK_CORE_MASK,\
-				 RK3188_DIV_ACLK_CORE_SHIFT)
-
-static unsigned long rockchip_rk3188_cpuclk_recalc_rate(struct clk_hw *hw,
-				unsigned long parent_rate)
-{
-	struct rockchip_cpuclk *cpuclk = to_rockchip_cpuclk_hw(hw);
-	u32 clksel0 = readl_relaxed(cpuclk->reg_base + RK2928_CLKSEL_CON(0));
-
-	clksel0 >>= RK3188_DIV_CORE_SHIFT;
-	clksel0 &= RK3188_DIV_CORE_MASK;
-	return parent_rate / (clksel0 + 1);
-}
-
-static const struct clk_ops rk3188_cpuclk_ops = {
-	.recalc_rate = rockchip_rk3188_cpuclk_recalc_rate,
-};
-
-static const struct rk2928_reg_data rk3188_data = {
-	.div_core_shift = RK3188_DIV_CORE_SHIFT,
-	.div_core_mask = RK3188_DIV_CORE_MASK,
-	.mux_core_shift = RK3188_MUX_CORE_SHIFT,
-};
-
-static int rk3188_cpuclk_notifier_cb(struct notifier_block *nb,
-				unsigned long event, void *data)
-{
-	return rk2928_cpuclk_common_notifier_cb(nb, event, data, &rk3188_data);
-}
-
-/*
- * parse divider configuration data from dt for all the cpu clock domain
- * clocks in rk3188 and compatible SoC's.
- */
-static int __init rk3188_cpuclk_parser(struct device_node *np, void **data)
-{
-	struct rk2928_cpuclk_data *tdata;
-	int proplen, ret, num_rows, i, col;
-	u32 cfg[10], cells;
-
-	ret = of_property_read_u32(np, "#rockchip,armclk-cells", &cells);
-	if (ret)
-		return -EINVAL;
-
-	proplen = of_property_count_u32_elems(np,
-					      "rockchip,armclk-divider-table");
-	if (proplen < 0)
-		return proplen;
-	if (!proplen || proplen % cells)
-		return -EINVAL;
-
-	num_rows = proplen / cells;
-
-	*data = kzalloc(sizeof(*tdata) * (num_rows + 1), GFP_KERNEL);
-	if (!*data)
-		return -ENOMEM;
-
-	tdata = *data;
-
-	for (i = 0; i < num_rows; i++, tdata++) {
-		for (col = 0; col < cells; col++) {
-			ret = of_property_read_u32_index(np,
-					"rockchip,armclk-divider-table",
-					i * cells + col, &cfg[col]);
-			if (ret) {
-				pr_err("%s: failed to read col %d in row %d of %d\n",
-				       __func__, col, i, num_rows);
-				kfree(*data);
-				return ret;
-			}
-		}
-
-		tdata->prate = cfg[0] * 1000;
-		tdata->clksel0 = RK3188_CLKSEL0(cfg[1]);
-		tdata->clksel1 = RK3188_CLKSEL1(cfg[2]);
-	}
-	tdata->prate = 0;
-	return 0;
-}
-
-static const struct rockchip_cpuclk_soc_data rk3188_cpuclk_soc_data = {
-	.parser = rk3188_cpuclk_parser,
-	.ops = &rk3188_cpuclk_ops,
-	.clk_cb = rk3188_cpuclk_notifier_cb,
-};
-
-#define RK3288_DIV_CORE_SHIFT		8
-#define RK3288_DIV_CORE_MASK		0x1f
-#define RK3288_MUX_CORE_SHIFT		15
-
-static unsigned long rockchip_rk3288_cpuclk_recalc_rate(struct clk_hw *hw,
-				unsigned long parent_rate)
-{
-	struct rockchip_cpuclk *cpuclk = to_rockchip_cpuclk_hw(hw);
-	u32 clksel0 = readl_relaxed(cpuclk->reg_base + RK3288_CLKSEL_CON(0));
-
-	clksel0 >>= RK3288_DIV_CORE_SHIFT;
-	clksel0 &= RK3288_DIV_CORE_MASK;
-	return parent_rate / (clksel0 + 1);
-}
-
-static const struct clk_ops rk3288_cpuclk_ops = {
-	.recalc_rate = rockchip_rk3288_cpuclk_recalc_rate,
-};
-
-static const struct rk2928_reg_data rk3288_data = {
-	.div_core_shift = RK3288_DIV_CORE_SHIFT,
-	.div_core_mask = RK3288_DIV_CORE_MASK,
-	.mux_core_shift = RK3288_MUX_CORE_SHIFT,
-};
-
-static const struct of_device_id rockchip_clock_ids_cpuclk[] = {
-	{ .compatible = "rockchip,rk2928-cru",
-			.data = &rk2928_cpuclk_soc_data, },
-	{ .compatible = "rockchip,rk3066-cru",
-			.data = &rk3066_cpuclk_soc_data, },
-	{ .compatible = "rockchip,rk3188-cru",
-			.data = &rk3188_cpuclk_soc_data, },
-	{ /* sentinel */ },
-};
-
-/**
- * rockchip_clk_register_cpuclk: register arm clock with ccf.
- * @lookup_id: cpuclk clock output id for the clock controller.
- * @parent_names: names of the parent clocks for cpuclk.
- * @num_parents: number of parent clocks
- * @base: base address of the clock controller from which cpuclk is generated.
- * @np: device tree node pointer of the clock controller.
- * @ops: clock ops for this clock (optional)
- */
 struct clk *rockchip_clk_register_cpuclk(const char *name,
-			const char **parent_names, unsigned int num_parents,
-			void __iomem *reg_base, struct device_node *np,
-			spinlock_t *lock)
+			const char **parent_names, u8 num_parents,
+			const struct rockchip_cpuclk_reg_data *reg_data,
+			struct rockchip_cpuclk_rate_table *rate_table,
+			void __iomem *reg_base, spinlock_t *lock)
 {
 	struct rockchip_cpuclk *cpuclk;
 	struct clk_init_data init;
-	const struct rockchip_cpuclk_soc_data *soc_data;
-	const struct of_device_id *match;
-	struct clk *clk;
+	struct clk *clk, *cclk;
 	int ret;
 
-	if (!np) {
-		pr_err("%s: missing device node\n", __func__);
+	if (!reg_data) {
+		pr_err("%s: no soc register information\n", __func__);
 		return ERR_PTR(-EINVAL);
 	}
-
-	match = of_match_node(rockchip_clock_ids_cpuclk, np);
-	if (!match) {
-		pr_err("%s: no matching cpuclock found\n", __func__);
-		return ERR_PTR(-EINVAL);
-	}
-
-	soc_data = match->data;
-
-	if (!soc_data->clk_cb)
-		return ERR_PTR(-EINVAL);
 
 	if (num_parents != 2) {
-		pr_err("%s: missing alternative parent clock\n", __func__);
+		pr_err("%s: needs two parent clocks\n", __func__);
 		return ERR_PTR(-EINVAL);
 	}
 
@@ -399,14 +221,18 @@ struct clk *rockchip_clk_register_cpuclk(const char *name,
 		return ERR_PTR(-ENOMEM);
 
 	init.name = name;
-	init.flags = CLK_SET_RATE_PARENT;
-	init.parent_names = parent_names;
+	init.parent_names = &parent_names[0];
 	init.num_parents = 1;
-	init.ops = soc_data->ops;
+	init.ops = &rockchip_cpuclk_ops;
+
+	/* only allow rate changes when we have a rate table */
+	init.flags = rate_table ? CLK_SET_RATE_PARENT : 0;
 
 	cpuclk->hw.init = &init;
 	cpuclk->reg_base = reg_base;
 	cpuclk->lock = lock;
+	cpuclk->reg_data = reg_data;
+	cpuclk->clk_nb.notifier_call = rockchip_cpuclk_notifier_cb;
 
 	cpuclk->alt_parent = __clk_lookup(parent_names[1]);
 	if (!cpuclk->alt_parent) {
@@ -423,35 +249,54 @@ struct clk *rockchip_clk_register_cpuclk(const char *name,
 		goto free_cpuclk;
 	}
 
-	if (soc_data->parser) {
-		ret = soc_data->parser(np, &cpuclk->data);
-		if (ret) {
-			pr_err("%s: error %d in parsing %s clock data",
-					__func__, ret, name);
-			ret = -EINVAL;
-			goto free_cpuclk;
+	clk = __clk_lookup(parent_names[0]);
+	if (!clk) {
+		pr_err("%s: could not lookup parent clock %s\n",
+		       __func__, parent_names[0]);
+		ret = -EINVAL;
+		goto free_cpuclk;
+	}
+
+	ret = clk_notifier_register(clk,&cpuclk->clk_nb);
+	if (ret) {
+		pr_err("%s: failed to register clock notifier for %s\n",
+				__func__, name);
+		goto free_cpuclk;
+	}
+
+	if (rate_table) {
+		int nrates;
+
+		/* find count of rates in rate_table */
+		for (nrates = 0; rate_table[nrates].prate != 0; )
+			nrates++;
+
+		cpuclk->rate_count = nrates;
+		cpuclk->rate_table = kmemdup(rate_table,
+					     sizeof(*rate_table) * nrates,
+					     GFP_KERNEL);
+		if (!cpuclk->rate_table) {
+			pr_err("%s: could not allocate memory for cpuclk rates\n",
+			       __func__);
+			ret = -ENOMEM;
+			goto unregister_notifier;
 		}
 	}
 
-	cpuclk->clk_nb.notifier_call = soc_data->clk_cb;
-	if (clk_notifier_register(__clk_lookup(parent_names[0]),
-			&cpuclk->clk_nb)) {
-		pr_err("%s: failed to register clock notifier for %s\n",
-				__func__, name);
-		goto free_cpuclk_data;
-	}
-
-	clk = clk_register(NULL, &cpuclk->hw);
+	cclk = clk_register(NULL, &cpuclk->hw);
 	if (IS_ERR(clk)) {
 		pr_err("%s: could not register cpuclk %s\n", __func__,	name);
 		ret = PTR_ERR(clk);
-		goto free_cpuclk_data;
+		goto free_rate_table;
 	}
 
-	return clk;
+	return cclk;
 
-free_cpuclk_data:
-	kfree(cpuclk->data);
+free_rate_table:
+	if (cpuclk->rate_table)
+		kfree(cpuclk->rate_table);
+unregister_notifier:
+	clk_notifier_unregister(clk, &cpuclk->clk_nb);
 free_cpuclk:
 	kfree(cpuclk);
 	return ERR_PTR(ret);
