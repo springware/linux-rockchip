@@ -101,6 +101,13 @@ struct rockchip_pll_rate_table rk3288_pll_rates[] = {
 	{ /* sentinel */ },
 };
 
+static const struct rockchip_cpuclk_reg_data rk3288_data = {
+	.core_reg = RK3288_CLKSEL_CON(0),
+	.div_core_shift = 8,
+	.div_core_mask = 0x1f,
+	.mux_core_shift = 15,
+};
+
 PNAME(mux_pll_p)		= { "xin24m", "xin32k" };
 PNAME(mux_armclk_p)		= { "apll_core", "gpll_core" };
 PNAME(mux_ddrphy_p)		= { "dpll_ddr", "gpll_ddr" };
