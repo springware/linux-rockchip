@@ -127,7 +127,8 @@ static int rockchip_cpuclk_pre_rate_change(struct rockchip_cpuclk *cpuclk,
 		alt_div =  DIV_ROUND_UP(alt_prate, ndata->old_rate) - 1;
 		WARN_ON(alt_div >= reg_data->div_core_mask);
 
-pr_info("%s: setting div %lu as alt-rate %lu > old-rate %lu\n", __func__, alt_div, alt_prate, ndata->old_rate);
+		pr_debug("%s: setting div %lu as alt-rate %lu > old-rate %lu\n",
+			 __func__, alt_div, alt_prate, ndata->old_rate);
 		writel_relaxed(HIWORD_UPDATE(alt_div,
 					     reg_data->div_core_mask,
 					     reg_data->div_core_shift),
@@ -145,7 +146,8 @@ pr_info("%s: setting div %lu as alt-rate %lu > old-rate %lu\n", __func__, alt_di
 		if (!clksel->reg)
 			continue;
 
-pr_info("%s: setting reg 0x%x to 0x%x\n", __func__, clksel->reg, clksel->val);
+		pr_debug("%s: setting reg 0x%x to 0x%x\n",
+			 __func__, clksel->reg, clksel->val);
 		writel(clksel->val , cpuclk->reg_base + clksel->reg);
 	}
 
@@ -186,7 +188,8 @@ static int rockchip_cpuclk_notifier_cb(struct notifier_block *nb,
 	struct rockchip_cpuclk *cpuclk = to_rockchip_cpuclk_nb(nb);
 	int ret = 0;
 
-pr_info("%s: event %lu, old_rate %lu, new_rate: %lu\n", __func__, event, ndata->old_rate, ndata->new_rate);
+	pr_debug("%s: event %lu, old_rate %lu, new_rate: %lu\n",
+		 __func__, event, ndata->old_rate, ndata->new_rate);
 	if (event == PRE_RATE_CHANGE)
 		ret = rockchip_cpuclk_pre_rate_change(cpuclk, ndata);
 	else if (event == POST_RATE_CHANGE)
