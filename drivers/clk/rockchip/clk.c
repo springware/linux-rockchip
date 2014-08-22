@@ -105,11 +105,6 @@ struct clk *rockchip_clk_register_branch(const char *name,
 	return clk;
 }
 
-#define FRAC_NUMERATOR_SHIFT	16
-#define FRAC_NUMERATOR_MASK	0xffff
-#define FRAC_DENOMINATOR_SHIFT	0
-#define FRAC_DENOMINATOR_MASK	0xffff
-
 struct clk *rockchip_clk_register_frac_branch(const char *name,
 		const char **parent_names, u8 num_parents, void __iomem *base,
 		int muxdiv_offset, u8 div_flags,
@@ -133,7 +128,7 @@ struct clk *rockchip_clk_register_frac_branch(const char *name,
 		gate_ops = &clk_gate_ops;
 	}
 
-	if (muxdiv_offset <= 0)
+	if (muxdiv_offset < 0)
 		return ERR_PTR(-EINVAL);
 
 	div = kzalloc(sizeof(*div), GFP_KERNEL);
@@ -142,16 +137,16 @@ struct clk *rockchip_clk_register_frac_branch(const char *name,
 
 	div->flags = div_flags;
 	div->reg = base + muxdiv_offset;
-	div->mshift = FRAC_NUMERATOR_SHIFT;
-	div->mmask = FRAC_NUMERATOR_MASK;
-	div->nshift = FRAC_DENOMINATOR_SHIFT;
-	div->nmask = FRAC_DENOMINATOR_MASK;
+	div->mshift = 16;
+	div->mmask = 0xffff0000;
+	div->nshift = 0;
+	div->nmask = 0xffff;
 	div->lock = lock;
 	div_ops = &clk_fractional_divider_ops;
 
 	clk = clk_register_composite(NULL, name, parent_names, num_parents,
 				     NULL, NULL,
-				     div ? &div->hw : NULL, div_ops,
+				     &div->hw, div_ops,
 				     gate ? &gate->hw : NULL, gate_ops,
 				     flags);
 
