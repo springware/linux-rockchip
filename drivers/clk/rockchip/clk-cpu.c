@@ -164,12 +164,12 @@ static int rockchip_cpuclk_post_rate_change(struct rockchip_cpuclk *cpuclk,
 
 	/* post-rate change event, re-mux back to primary parent */
 	writel(HIWORD_UPDATE(0, 1, reg_data->mux_core_shift),
-	       cpuclk->reg_base + RK2928_CLKSEL_CON(0));
+	       cpuclk->reg_base + reg_data->core_reg);
 
 	/* remove any core dividers */
 	writel(HIWORD_UPDATE(0, reg_data->div_core_mask,
 			     reg_data->div_core_shift),
-	       cpuclk->reg_base + RK2928_CLKSEL_CON(0));
+	       cpuclk->reg_base + reg_data->core_reg);
 
 	spin_unlock(cpuclk->lock);
 	return 0;
