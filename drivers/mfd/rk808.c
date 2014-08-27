@@ -61,14 +61,8 @@ static const struct rk808_reg_data pre_init_reg[] = {
 	{ RK808_BUCK2_CONFIG_REG, BUCK2_RATE_MASK,  BUCK_ILMIN_200MA },
 	{ RK808_VB_MON_REG,       MASK_ALL,         VB_LO_ACT |
 						    VB_LO_SEL_3500MV },
-
-	/* ack any pending interrupts */
-	{ RK808_INT_STS_REG1,     INT_STS_REG1_MASK, INT_STS_REG1_MASK },
-	{ RK808_INT_STS_REG2,     INT_STS_REG2_MASK, INT_STS_REG2_MASK },
-
-	/* mask all interrupts */
-	{ RK808_INT_STS_MSK_REG1, INT_STS_REG1_MASK, INT_STS_REG1_MASK },
-	{ RK808_INT_STS_MSK_REG2, INT_STS_REG2_MASK, INT_STS_REG2_MASK },
+	{ RK808_INT_STS_REG1,     MASK_NONE,        0 },
+	{ RK808_INT_STS_REG2,     MASK_NONE,        0 },
 };
 
 static const struct regmap_irq rk808_irqs[] = {
