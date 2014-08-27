@@ -17,13 +17,6 @@
 		reg = <0x0 0x80000000>;
 	};
 
-	amba {
-		/* dma1 in secure state */
-		dmac1: dma-controller@ffb20000 {
-			status = "okay";
-		};
-	};
-
 	vcc_sd0: sdmmc-regulator {
 		compatible = "regulator-fixed";
 		regulator-name = "sdmmc-supply";
