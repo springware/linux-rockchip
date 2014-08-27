@@ -775,13 +775,13 @@
 
 		pwm2 {
 			pwm2_pin: pwm2-pin {
-				rockchip,pins = <7 22 RK_FUNC_3 &pcfg_pull_none>;
+				rockchip,pins = <7 22 3 &pcfg_pull_none>;
 			};
 		};
 
 		pwm3 {
 			pwm3_pin: pwm3-pin {
-				rockchip,pins = <7 23 RK_FUNC_3 &pcfg_pull_none>;
+				rockchip,pins = <7 23 3 &pcfg_pull_none>;
 			};
 		};
 	};
