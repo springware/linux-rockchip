@@ -156,6 +156,8 @@ enum rk808_reg {
 #define BUCK2_RATE_MASK		(3 << 3)
 #define MASK_ALL	0xff
 #define MASK_NONE	0
+#define INT_STS_REG1_MASK	0x7f
+#define INT_STS_REG2_MASK	0x3
 
 #define SWITCH2_EN	BIT(6)
 #define SWITCH1_EN	BIT(5)
