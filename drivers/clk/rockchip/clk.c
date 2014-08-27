@@ -105,7 +105,7 @@ struct clk *rockchip_clk_register_branch(const char *name,
 	return clk;
 }
 
-struct clk *rockchip_clk_register_frac_branch(const char *name,
+static struct clk *rockchip_clk_register_frac_branch(const char *name,
 		const char **parent_names, u8 num_parents, void __iomem *base,
 		int muxdiv_offset, u8 div_flags,
 		int gate_offset, u8 gate_shift, u8 gate_flags,
