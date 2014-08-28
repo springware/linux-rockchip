@@ -58,6 +58,42 @@
 		};
 		/* VOL+ comes somehow thru the ADC */
 	};
+
+	iio_hwmon {
+		compatible = "iio-hwmon";
+		io-channels = <&saradc 0>, <&saradc 1>, <&saradc 2>;
+	};
+
+	cpu_temp: iio-thermal {
+		compatible = "iio-thermal";
+		io-channels = <&tsadc 0>;
+		conversion-method = "interpolation";
+		conversion-values = <
+			2088 398150
+			2218 318150
+			2238 303150
+			2244 298150
+			2319 233150
+		>;
+		#thermal-sensor-cells = <0>;
+	};
+
+	thermal-zones {
+		cpu_thermal: cpu-thermal {
+			polling-delay-passive = <250>;
+			polling-delay = <1000>;
+
+			thermal-sensors = <&cpu_temp>;
+
+			trips {
+				core_crit: core_crit {
+					temperature = <125000>; /* milliCelsius */
+					hysteresis = <2000>; /* milliCelsius */
+					type = "critical";
+				};
+			};
+		};
+	};
 };
 
 &i2c1 {
@@ -166,6 +202,16 @@
 
 	bus-width = <4>;
 	disable-wp;
+};
+
+&saradc {
+	status = "okay";
+	vref-supply = <&vcc_25>;
+};
+
+&tsadc {
+	status = "okay";
+	vref-supply = <&vcc_25>;
 };
 
 &uart0 {
