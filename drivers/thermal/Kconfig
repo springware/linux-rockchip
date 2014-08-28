@@ -114,6 +114,19 @@ config THERMAL_EMULATION
 	  because userland can easily disable the thermal policy by simply
 	  flooding this sysfs node with low temperature values.
 
+config IIO_THERMAL
+	tristate "Temperature sensor driver for generic IIO channels"
+	depends on IIO
+	depends on THERMAL_OF
+	help
+	  Support for generic IIO channels, such as ADCs.  This driver allows
+	  you to expose an IIO voltage channel as a thermal sensor.  This is
+	  implemented as a thermal sensor, not a thermal zone, and thus
+	  requires DT defined thermal infrastructure in order to be useful.
+
+	  If you aren't sure that you need this support, or haven't configured
+	  a thermal infrastructure in device tree, you should say 'N' here.
+
 config IMX_THERMAL
 	tristate "Temperature sensor driver for Freescale i.MX SoCs"
 	depends on CPU_THERMAL

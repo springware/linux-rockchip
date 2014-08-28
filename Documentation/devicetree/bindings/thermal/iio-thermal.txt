@@ -1,0 +1,46 @@
+Generic IIO channel thermal sensor bindings
+
+compatible:
+	Usage: required
+	Type: string
+	Desc: compatible string, must be "iio-thermal"
+
+conversion-method:
+	Usage: required
+	Type: string
+	Desc: How to convert IIO voltage values to temperature, one of:
+		"interpolation" - interpolate between values in lookup table
+		"scalar" - use values as multiplier and divisor
+
+conversion-values:
+	Usage: required
+	Type: u32 array, 2-tuples
+	Desc: lookup table for conversion, for conversion-method:
+		"interpolation" - 2-tuples of < uV mK >; micro-volts to
+				  milli-kelvin; table must ascend
+		"scalar" - single scalar 2-tuple as < M D >; where:
+			   mK = uV * M / D
+
+io-channels:
+	Usage: required
+	Type: prop-encoded-array
+	Desc: See bindings/iio/iio-bindings.txt; must be a voltage channel
+
+Example:
+
+vadc: some_vadc {
+	compatible = "...";
+	#io-channel-cells = <1>;
+};
+
+iio-thermal {
+	compatible = "iio-thermal";
+	io-channels = <&vadc 0>;
+	conversion-method = "interpolation";
+	conversion-values = <
+		  30000 398200
+		 385000 318200
+		1738000 233200
+	>;
+};
+
