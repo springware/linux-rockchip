@@ -21,6 +21,13 @@
 #define CORE_PERI		5
 #define CORE_L2C		6
 #define ARMCLK			7
+#define ACLK_CPU		8
+#define HCLK_CPU		9
+#define PCLK_CPU		10
+#define HCLK_AHB2APB		11
+#define ACLK_PERI_PRE		12
+#define HCLK_PERI		13
+#define PCLK_PERI		14
 
 /* sclk gates (special clocks) */
 #define SCLK_UART0		64
