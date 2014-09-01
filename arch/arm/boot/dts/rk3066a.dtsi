@@ -31,6 +31,18 @@
 			compatible = "arm,cortex-a9";
 			next-level-cache = <&L2>;
 			reg = <0x0>;
+			operating-points = <
+				/* kHz    uV */
+/*				1416000 1200000
+				1200000 1200000 */
+				1008000 1075000
+				 816000 1025000
+				 600000 1025000
+				 504000 1000000
+				 312000  975000
+			>;
+			clock-latency = <40000>;
+			clocks = <&cru ARMCLK>;
 		};
 		cpu@1 {
 			device_type = "cpu";
