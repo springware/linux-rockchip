@@ -89,11 +89,6 @@
 		};
 	};
 
-	iio_hwmon@1 {
-		compatible = "iio-hwmon";
-		io-channels = <&saradc 0>, <&saradc 1>, <&saradc 2>;
-	};
-
 	/* This turns on USB vbus for both host0 (ehci) and host1 (dwc2) */
 	vcc_host: vcc-host-regulator {
 		compatible = "regulator-fixed";
