@@ -398,24 +398,4 @@ static inline void rockchip_register_softrst(struct device_node *np,
 }
 #endif
 
-/**
- * struct rockchip_clk_init_table - clock initialization table
- * @name:	clock name to set
- * @parent_name:parent clock name
- * @rate:	rate to set
- * @state:	enable/disable
- */
-struct rockchip_clk_init_table {
-	const char	*name;
-	const char	*parent_name;
-	unsigned long	rate;
-	int		state;
-};
-
-void rockchip_clk_init_from_table(struct rockchip_clk_init_table *tbl,
-				  unsigned int nr_tbl);
-
-typedef void (*rockchip_clk_apply_init_table_func)(void);
-extern rockchip_clk_apply_init_table_func rockchip_clk_apply_init_table;
-
 #endif

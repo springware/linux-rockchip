@@ -333,61 +333,6 @@ void __init rockchip_clk_register_armclk(unsigned int lookup_id, const char *nam
 	rockchip_clk_add_lookup(clk, lookup_id);
 }
 
-void __init rockchip_clk_init_from_table(struct rockchip_clk_init_table *tbl,
-					 unsigned int nr_tbl)
-{
-	struct clk *clk;
-	unsigned int idx;
-
-	for (idx = 0; idx < nr_tbl; idx++, tbl++) {
-		clk = __clk_lookup(tbl->name);
-		if (!clk) {
-			pr_err("%s: Failed to find clock %s\n",
-			       __func__, tbl->name);
-			continue;
-		}
-
-		if (tbl->parent_name) {
-			struct clk *parent = __clk_lookup(tbl->parent_name);
-			pr_info("%s: setting parent of %s to %s\n", __func__, tbl->name, tbl->parent_name);
-			if (clk_set_parent(clk, parent)) {
-				pr_err("%s: Failed to set parent %s of %s\n",
-				       __func__, tbl->parent_name, tbl->name);
-				WARN_ON(1);
-			}
-		}
-
-		if (tbl->rate) {
-			pr_info("%s: setting rate of %s to %lu\n", __func__, tbl->name, tbl->rate);
-			if (clk_set_rate(clk, tbl->rate)) {
-				pr_err("%s: Failed to set rate %lu of %s\n",
-				       __func__, tbl->rate, tbl->name);
-				WARN_ON(1);
-			}
-		}
-
-		if (tbl->state) {
-			pr_info("%s: enabling %s\n", __func__, tbl->name);
-			if (clk_prepare_enable(clk)) {
-				pr_err("%s: Failed to enable %s\n", __func__,
-				       tbl->name);
-				WARN_ON(1);
-			}
-		}
-	}
-}
-
-rockchip_clk_apply_init_table_func rockchip_clk_apply_init_table;
-
-void __init rockchip_clocks_apply_init_table(void)
-{
-	if (!rockchip_clk_apply_init_table)
-		return;
-
-	pr_info("%s: applying initial clock settings\n", __func__);
-	rockchip_clk_apply_init_table();
-}
-
 void __init rockchip_clk_protect_critical(const char *clocks[], int nclocks)
 {
 	int i;
