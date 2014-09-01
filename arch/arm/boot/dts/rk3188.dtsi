@@ -105,6 +105,17 @@
 
 		#clock-cells = <1>;
 		#reset-cells = <1>;
+
+		assigned-clocks = <&cru PLL_GPLL>, <&cru PLL_CPLL>, <&cru ACLK_CPU>,
+				  <&cru HCLK_CPU>, <&cru PCLK_CPU>, <&cru HCLK_AHB2APB>,
+				  <&cru ACLK_PERI_PRE>, <&cru HCLK_PERI>, <&cru PCLK_PERI>;
+		assigned-clock-parents = <0>, <0>, <0>,
+					 <0>, <0>, <0>,
+					 <&cru PLL_CPLL>;
+		assigned-clock-rates = <891000000>, <600000000>, <300000000>,
+				       <150000000>, <75000000>, <75000000>,
+				       <150000000>, <150000000>, <75000000>;
+
 	};
 
 	pinctrl: pinctrl {
