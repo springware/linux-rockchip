@@ -258,6 +258,16 @@ void __init rockchip_clk_register_branches(
 					list->div_shift, list->div_width,
 					list->div_flags, &clk_lock);
 			break;
+		case branch_fraction_divider:
+			/* keep all gates untouched for now */
+			flags |= CLK_IGNORE_UNUSED;
+
+			clk = rockchip_clk_register_frac_branch(list->name,
+				list->parent_names, list->num_parents,
+				reg_base, list->muxdiv_offset, list->div_flags,
+				list->gate_offset, list->gate_shift,
+				list->gate_flags, flags, &clk_lock);
+			break;
 		case branch_muxgrf:
 			/* unimplemented */
 			continue;
@@ -272,16 +282,6 @@ void __init rockchip_clk_register_branches(
 				list->parent_names[0], flags,
 				reg_base + list->gate_offset,
 				list->gate_shift, list->gate_flags, &clk_lock);
-			break;
-		case branch_fraction_divider:
-			/* keep all gates untouched for now */
-			flags |= CLK_IGNORE_UNUSED;
-
-			clk = rockchip_clk_register_frac_branch(list->name,
-				list->parent_names, list->num_parents,
-				reg_base, list->muxdiv_offset, list->div_flags,
-				list->gate_offset, list->gate_shift,
-				list->gate_flags, flags, &clk_lock);
 			break;
 		case branch_composite:
 			/* keep all gates untouched for now */
