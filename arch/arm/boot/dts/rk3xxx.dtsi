@@ -145,6 +145,9 @@
 		clocks = <&cru HCLK_EMAC>;
 		max-speed = <100>;
 
+		assigned-clocks = <&cru SCLK_MAC>;
+		assigned-clock-rates = <50000000>;
+
 		status = "disabled";
 	};
 
