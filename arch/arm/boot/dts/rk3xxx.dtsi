@@ -43,7 +43,6 @@
 			#dma-cells = <1>;
 			clocks = <&cru ACLK_DMA1>;
 			clock-names = "apb_pclk";
-			status = "disabled";
 		};
 
 		/* dma1 in non-secure state */

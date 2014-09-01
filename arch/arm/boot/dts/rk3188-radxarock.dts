@@ -23,19 +23,6 @@
 		reg = <0x60000000 0x80000000>;
 	};
 
-	cpus {
-		cpu@0 {
-			cpu0-supply = <&vdd_arm>;
-		};
-	};
-
-	amba {
-		/* dma1 in secure state */
-		dmac1: dma-controller@20018000 {
-			status = "okay";
-		};
-	};
-
 	gpio-keys {
 		compatible = "gpio-keys";
 		#address-cells = <1>;
@@ -105,6 +92,10 @@
 		gpio = <&gpio0 3 GPIO_ACTIVE_LOW>;
 		startup-delay-us = <100000>;
 	};
+};
+
+&cpu0 {
+	cpu0-supply = <&vdd_arm>;
 };
 
 &emac {

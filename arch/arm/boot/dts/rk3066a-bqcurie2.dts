@@ -24,12 +24,6 @@
 		reg = <0x60000000 0x40000000>;
 	};
 
-	cpus {
-		cpu@0 {
-			cpu0-supply = <&vdd_arm>;
-		};
-	};
-
 	vcc_sd0: fixed-regulator {
 		compatible = "regulator-fixed";
 		regulator-name = "sdmmc-supply";
@@ -136,6 +130,10 @@
 			};
 		};
 	};
+};
+
+&cpu0 {
+	cpu0-supply = <&vdd_arm>;
 };
 
 &i2c1 {
