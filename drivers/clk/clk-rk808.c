@@ -3,8 +3,6 @@
  *
  * Copyright (c) 2014, Fuzhou Rockchip Electronics Co., Ltd
  *
- * Author: Chris Zhong <zyw@rock-chips.com>
- *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
  * version 2, as published by the Free Software Foundation.
@@ -54,12 +52,12 @@ static int rk808_clkout2_control(struct clk_hw *hw, bool enable)
 
 static int rk808_clkout2_prepare(struct clk_hw *hw)
 {
-	return rk808_clkout2_control(hw, 1);
+	return rk808_clkout2_control(hw, true);
 }
 
 static void rk808_clkout2_unprepare(struct clk_hw *hw)
 {
-	rk808_clkout2_control(hw, 0);
+	rk808_clkout2_control(hw, false);
 }
 
 static int rk808_clkout2_is_prepared(struct clk_hw *hw)
@@ -107,7 +105,7 @@ static int rk808_clkout_probe(struct platform_device *pdev)
 	rk808_clkout->rk808 = rk808;
 
 	clk_table = devm_kzalloc(&client->dev,
-				 2*sizeof(struct clk *), GFP_KERNEL);
+				 2 * sizeof(struct clk *), GFP_KERNEL);
 	if (!clk_table)
 		return -ENOMEM;
 
@@ -151,7 +149,6 @@ static struct platform_driver rk808_clkout_driver = {
 	.probe = rk808_clkout_probe,
 	.driver		= {
 		.name	= "rk808-clkout",
-		.owner	= THIS_MODULE,
 	},
 };
 

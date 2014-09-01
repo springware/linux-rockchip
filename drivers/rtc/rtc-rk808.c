@@ -23,6 +23,13 @@
 
 /* RTC_CTRL_REG bitfields */
 #define BIT_RTC_CTRL_REG_STOP_RTC_M		BIT(0)
+
+/* RK808 has a shadowed register for saving a "frozen" RTC time.
+ * When user setting "GET_TIME" to 1, the time will save in this shadowed
+ * register. If set "READSEL" to 1, user read rtc time register, actually
+ * get the time of that moment. If we need the real time, clr this bit.
+ */
+#define BIT_RTC_CTRL_REG_RTC_GET_TIME		BIT(6)
 #define BIT_RTC_CTRL_REG_RTC_READSEL_M		BIT(7)
 #define BIT_RTC_INTERRUPTS_REG_IT_ALARM_M	BIT(3)
 #define RTC_STATUS_MASK		0xFE
@@ -54,11 +61,19 @@ static int rk808_rtc_readtime(struct device *dev, struct rtc_time *tm)
 	u8 rtc_data[NUM_TIME_REGS];
 	int ret;
 
+	ret = regmap_update_bits(rk808->regmap, RK808_RTC_CTRL_REG,
+				 BIT_RTC_CTRL_REG_RTC_GET_TIME,
+				 BIT_RTC_CTRL_REG_RTC_GET_TIME);
+	if (ret) {
+		dev_err(dev, "Failed to update bits rtc_ctrl: %d\n", ret);
+		return ret;
+	}
+
 	ret = regmap_bulk_read(rk808->regmap, RK808_SECONDS_REG,
 			       rtc_data, NUM_TIME_REGS);
 	if (ret) {
 		dev_err(dev, "Failed to bulk read rtc_data: %d\n", ret);
-		return ret;
+		goto reset_read_sel;
 	}
 
 	tm->tm_sec = bcd2bin(rtc_data[0] & SECONDS_REG_MSK);
@@ -72,7 +87,12 @@ static int rk808_rtc_readtime(struct device *dev, struct rtc_time *tm)
 		1900 + tm->tm_year, tm->tm_mon + 1, tm->tm_mday,
 		tm->tm_wday, tm->tm_hour , tm->tm_min, tm->tm_sec);
 
-	return 0;
+reset_read_sel:
+	ret = regmap_update_bits(rk808->regmap, RK808_RTC_CTRL_REG,
+				 BIT_RTC_CTRL_REG_RTC_GET_TIME, 0);
+	if (ret)
+		dev_err(dev, "Failed to update bits rtc_ctrl: %d\n", ret);
+	return ret;
 }
 
 /* Set current time and date in RTC */
@@ -243,7 +263,6 @@ static irqreturn_t rk808_alarm_irq(int irq, void *data)
 	struct rk808_rtc *rk808_rtc = data;
 	struct rk808 *rk808 = rk808_rtc->rk808;
 	struct i2c_client *client = rk808->i2c;
-	uint32_t rtc_ctl;
 	int ret;
 
 	ret = regmap_write(rk808->regmap, RK808_RTC_STATUS_REG,
@@ -256,7 +275,7 @@ static irqreturn_t rk808_alarm_irq(int irq, void *data)
 
 	rtc_update_irq(rk808_rtc->rtc, 1, RTC_IRQF | RTC_AF);
 	dev_dbg(&client->dev,
-		 "%s:irq=%d,rtc_ctl=0x%x\n", __func__, irq, rtc_ctl);
+		 "%s:irq=%d\n", __func__, irq);
 	return IRQ_HANDLED;
 }
 
@@ -268,7 +287,7 @@ static const struct rtc_class_ops rk808_rtc_ops = {
 	.alarm_irq_enable = rk808_rtc_alarm_irq_enable,
 };
 
-#ifdef CONFIG_PM
+#ifdef CONFIG_PM_SLEEP
 /* Turn off the alarm if it should not be a wake source. */
 static int rk808_rtc_suspend(struct device *dev)
 {
@@ -294,18 +313,12 @@ static int rk808_rtc_resume(struct device *dev)
 
 	return 0;
 }
-#else
-#define rk808_rtc_suspend NULL
-#define rk808_rtc_resume NULL
 #endif
 
-static const struct dev_pm_ops rk808_rtc_pm_ops = {
-	.suspend = rk808_rtc_suspend,
-	.resume = rk808_rtc_resume,
-	.poweroff = rk808_rtc_suspend,
-};
+static SIMPLE_DEV_PM_OPS(rk808_rtc_pm_ops,
+	rk808_rtc_suspend, rk808_rtc_resume);
 
-/* 2012.1.1 12:00:00 Saturday */
+/* 2014.1.1 12:00:00 Saturday */
 struct rtc_time tm_def = {
 			.tm_wday = 6,
 			.tm_year = 114,
@@ -330,16 +343,11 @@ static int rk808_rtc_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, rk808_rtc);
 	rk808_rtc->rk808 = rk808;
 
-	/* start rtc running by default.
-	 * RK808 has a shadowed register for saving a "frozen" RTC time.
-	 * When user setting "RTC_READSEL" to 1, the time will save in this
-	 * shadowed register. In this case, user read rtc time register,
-	 * actually get the time of that moment. We need the real time,
-	 * so clr this bit.
-	 */
+	/* start rtc running by default, and use shadowed timer. */
 	ret = regmap_update_bits(rk808->regmap, RK808_RTC_CTRL_REG,
 				 BIT_RTC_CTRL_REG_STOP_RTC_M |
-				 BIT_RTC_CTRL_REG_RTC_READSEL_M, 0);
+				 BIT_RTC_CTRL_REG_RTC_READSEL_M,
+				 BIT_RTC_CTRL_REG_RTC_READSEL_M);
 	if (ret) {
 		dev_err(&pdev->dev,
 			"Failed to update RTC control: %d\n", ret);
@@ -375,17 +383,16 @@ static int rk808_rtc_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	rk808_rtc->irq  = platform_get_irq(pdev, 0);
+	rk808_rtc->irq = platform_get_irq(pdev, 0);
 	if (rk808_rtc->irq <= 0) {
-		dev_warn(&pdev->dev, "Wake up is not possible as irq = %d\n",
+		dev_err(&pdev->dev, "Wake up is not possible as irq = %d\n",
 			rk808_rtc->irq);
-		return rk808_rtc->irq;
+		return -ENXIO;
 	}
 
 	/* request alarm irq of rk808 */
 	ret = devm_request_threaded_irq(&pdev->dev, rk808_rtc->irq, NULL,
-					rk808_alarm_irq,
-					IRQF_TRIGGER_LOW | IRQF_EARLY_RESUME,
+					rk808_alarm_irq, 0,
 					"RTC alarm", rk808_rtc);
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to request alarm IRQ %d: %d\n",

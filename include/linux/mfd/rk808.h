@@ -155,7 +155,6 @@ enum rk808_reg {
 #define BUCK1_RATE_MASK		(3 << 3)
 #define BUCK2_RATE_MASK		(3 << 3)
 #define MASK_ALL	0xff
-#define MASK_NONE	0
 
 #define SWITCH2_EN	BIT(6)
 #define SWITCH1_EN	BIT(5)
@@ -187,11 +186,6 @@ enum {
 	BOOST_ILMIN_200MA,
 	BOOST_ILMIN_225MA,
 	BOOST_ILMIN_250MA,
-};
-
-struct rk808_board {
-	struct regulator_init_data *rk808_init_data[RK808_NUM_REGULATORS];
-	struct device_node *of_node[RK808_NUM_REGULATORS];
 };
 
 struct rk808 {

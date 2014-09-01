@@ -3,9 +3,6 @@
  *
  * Copyright (c) 2014, Fuzhou Rockchip Electronics Co., Ltd
  *
- * Author: Chris Zhong <zyw@rock-chips.com>
- * Author: Zhang Qing <zhangqing@rock-chips.com>
- *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
  * version 2, as published by the Free Software Foundation.
@@ -61,8 +58,6 @@ static const struct rk808_reg_data pre_init_reg[] = {
 	{ RK808_BUCK2_CONFIG_REG, BUCK2_RATE_MASK,  BUCK_ILMIN_200MA },
 	{ RK808_VB_MON_REG,       MASK_ALL,         VB_LO_ACT |
 						    VB_LO_SEL_3500MV },
-	{ RK808_INT_STS_REG1,     MASK_NONE,        0 },
-	{ RK808_INT_STS_REG2,     MASK_NONE,        0 },
 };
 
 static const struct regmap_irq rk808_irqs[] = {
@@ -138,11 +133,29 @@ static void rk808_device_shutdown(void)
 		dev_err(&rk808_i2c_client->dev, "power off error!\n");
 }
 
-static int rk808_pre_init(struct rk808 *rk808)
+static int rk808_probe(struct i2c_client *client,
+		       const struct i2c_device_id *id)
 {
 	int i;
 	int ret;
-	struct i2c_client *client = rk808->i2c;
+	int pm_off = 0;
+	struct rk808 *rk808;
+	struct device_node *np = client->dev.of_node;
+
+	if (!client->irq) {
+		dev_err(&client->dev, "No interrupt support, no core IRQ\n");
+		return -EINVAL;
+	}
+
+	rk808 = devm_kzalloc(&client->dev, sizeof(*rk808), GFP_KERNEL);
+	if (!rk808)
+		return -ENOMEM;
+
+	rk808->regmap = devm_regmap_init_i2c(client, &rk808_regmap_config);
+	if (IS_ERR(rk808->regmap)) {
+		dev_err(&client->dev, "regmap initialization failed\n");
+		return PTR_ERR(rk808->regmap);
+	}
 
 	for (i = 0; i < ARRAY_SIZE(pre_init_reg); i++) {
 		ret = regmap_update_bits(rk808->regmap, pre_init_reg[i].addr,
@@ -155,42 +168,6 @@ static int rk808_pre_init(struct rk808 *rk808)
 		}
 	}
 
-	return 0;
-}
-
-static int rk808_probe(struct i2c_client *client,
-		       const struct i2c_device_id *id)
-{
-	int ret;
-	int pm_off = 0;
-	struct rk808 *rk808;
-	struct device_node *np = client->dev.of_node;
-
-	pm_off = of_property_read_bool(np,
-				       "rockchip,system-power-controller");
-
-	rk808 = devm_kzalloc(&client->dev, sizeof(*rk808), GFP_KERNEL);
-	if (!rk808)
-		return -ENOMEM;
-
-	rk808->i2c = client;
-	i2c_set_clientdata(client, rk808);
-
-	rk808->regmap = devm_regmap_init_i2c(client, &rk808_regmap_config);
-	if (IS_ERR(rk808->regmap)) {
-		dev_err(&client->dev, "regmap initialization failed\n");
-		return PTR_ERR(rk808->regmap);
-	}
-
-	ret = rk808_pre_init(rk808);
-	if (ret)
-		return ret;
-
-	if (!client->irq) {
-		dev_err(&client->dev, "No interrupt support, no core IRQ\n");
-		return -EINVAL;
-	}
-
 	ret = regmap_add_irq_chip(rk808->regmap, client->irq,
 				  IRQF_ONESHOT, -1,
 				  &rk808_irq_chip, &rk808->irq_data);
@@ -199,6 +176,8 @@ static int rk808_probe(struct i2c_client *client,
 		return ret;
 	}
 
+	rk808->i2c = client;
+	i2c_set_clientdata(client, rk808);
 	ret = mfd_add_devices(&client->dev, -1,
 			      rk808s, ARRAY_SIZE(rk808s),
 			      NULL, 0, regmap_irq_get_domain(rk808->irq_data));
@@ -207,9 +186,13 @@ static int rk808_probe(struct i2c_client *client,
 		goto err_irq;
 	}
 
-	if (pm_off && !pm_power_off) {
-		rk808_i2c_client = client;
-		pm_power_off = rk808_device_shutdown;
+	if (np) {
+		pm_off = of_property_read_bool(np,
+					"rockchip,system-power-controller");
+		if (pm_off && !pm_power_off) {
+			rk808_i2c_client = client;
+			pm_power_off = rk808_device_shutdown;
+		}
 	}
 
 	return 0;
@@ -226,18 +209,20 @@ static int rk808_remove(struct i2c_client *client)
 	regmap_del_irq_chip(client->irq, rk808->irq_data);
 	mfd_remove_devices(&client->dev);
 	pm_power_off = NULL;
+
 	return 0;
 }
 
 static struct of_device_id rk808_of_match[] = {
 	{ .compatible = "rockchip,rk808" },
+	{ },
 };
 MODULE_DEVICE_TABLE(of, rk808_of_match);
 
 static const struct i2c_device_id rk808_ids[] = {
-	 { "rk808" },
+	{ "rk808" },
+	{ },
 };
-
 MODULE_DEVICE_TABLE(i2c, rk808_ids);
 
 static struct i2c_driver rk808_i2c_driver = {

@@ -584,7 +584,7 @@ config MFD_RC5T583
 
 config MFD_RK808
 	tristate "Rockchip RK808 Power Management chip"
-	depends on I2C
+	depends on I2C && OF
 	select MFD_CORE
 	select REGMAP_I2C
 	select REGMAP_IRQ

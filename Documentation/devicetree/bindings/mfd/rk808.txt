@@ -5,8 +5,8 @@ Required properties:
 - reg: I2C slave address
 - interrupt-parent: The parent interrupt controller.
 - interrupts: the interrupt outputs of the controller.
-- #clock-cells: RK808 has 2 clkout, they are always 32khz,
-  the value should be 1
+- #clock-cells: from common clock binding; shall be set to 1 (multiple clock
+  outputs)
 
 Optional properties:
 - clock-output-names: From common clock binding to override the
@@ -40,25 +40,32 @@ for more details
 Example:
 	rk808: pmic@1b {
 		compatible = "rockchip,rk808";
+		clock-output-names = "xin32k", "rk808-clkout2";
 		interrupt-parent = <&gpio0>;
-		interrupts = <4 IRQ_TYPE_EDGE_FALLING>;
+		interrupts = <4 IRQ_TYPE_LEVEL_LOW>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&pmic_int>;
 		reg = <0x1b>;
-		#clock-cells = <1>;
-		clock-output-names = "xin32k0", "xin32k1";
 		rockchip,system-power-controller;
+		wakeup-source;
+		#clock-cells = <1>;
+
+		vcc8-supply = <&vcc_18>;
+		vcc9-supply = <&vcc_io>;
+		vcc10-supply = <&vcc_io>;
+		vcc12-supply = <&vcc_io>;
+		vddio-supply = <&vccio_pmu>;
 
 		regulators {
-			rk808_dcdc1_reg: DCDC_REG1 {
+			vdd_cpu: DCDC_REG1 {
 				regulator-always-on;
 				regulator-boot-on;
-				regulator-min-microvolt = <1200000>;
-				regulator-max-microvolt = <1200000>;
+				regulator-min-microvolt = <750000>;
+				regulator-max-microvolt = <1300000>;
 				regulator-name = "vdd_arm";
 			};
 
-			rk808_dcdc2_reg: DCDC_REG2 {
+			vdd_gpu: DCDC_REG2 {
 				regulator-always-on;
 				regulator-boot-on;
 				regulator-min-microvolt = <850000>;
@@ -66,85 +73,94 @@ Example:
 				regulator-name = "vdd_gpu";
 			};
 
-			rk808_dcdc3_reg: DCDC_REG3 {
+			vcc_ddr: DCDC_REG3 {
 				regulator-always-on;
 				regulator-boot-on;
-				regulator-name = "vdd_ddr";
+				regulator-name = "vcc_ddr";
 			};
 
-			rk808_dcdc4_reg: DCDC_REG4 {
-				regulator-always-on;
-				regulator-boot-on;
-				regulator-min-microvolt = <3300000>;
-				regulator-max-microvolt = <3300000>;
-				regulator-name = "vccio";
-			};
-
-			rk808_ldo1_reg: LDO_REG1 {
+			vcc_io: DCDC_REG4 {
 				regulator-always-on;
 				regulator-boot-on;
 				regulator-min-microvolt = <3300000>;
 				regulator-max-microvolt = <3300000>;
+				regulator-name = "vcc_io";
 			};
 
-			rk808_ldo2_reg: LDO_REG2 {
+			vccio_pmu: LDO_REG1 {
 				regulator-always-on;
 				regulator-boot-on;
 				regulator-min-microvolt = <3300000>;
 				regulator-max-microvolt = <3300000>;
+				regulator-name = "vccio_pmu";
 			};
 
-			rk808_ldo3_reg: LDO_REG3 {
+			vcc_tp: LDO_REG2 {
+				regulator-always-on;
+				regulator-boot-on;
+				regulator-min-microvolt = <3300000>;
+				regulator-max-microvolt = <3300000>;
+				regulator-name = "vcc_tp";
+			};
+
+			vdd_10: LDO_REG3 {
 				regulator-always-on;
 				regulator-boot-on;
 				regulator-min-microvolt = <1000000>;
 				regulator-max-microvolt = <1000000>;
-				regulator-name = "LDO_REG3";
+				regulator-name = "vdd_10";
 			};
 
-			rk808_ldo4_reg: LDO_REG4 {
+			vcc18_lcd: LDO_REG4 {
 				regulator-always-on;
 				regulator-boot-on;
 				regulator-min-microvolt = <1800000>;
 				regulator-max-microvolt = <1800000>;
+				regulator-name = "vcc18_lcd";
 			};
 
-			rk808_ldo5_reg: LDO_REG5 {
+			vccio_sd: LDO_REG5 {
 				regulator-always-on;
 				regulator-boot-on;
 				regulator-min-microvolt = <1800000>;
 				regulator-max-microvolt = <3300000>;
+				regulator-name = "vccio_sd";
 			};
 
-			rk808_ldo6_reg: LDO_REG6 {
+			vdd10_lcd: LDO_REG6 {
 				regulator-always-on;
 				regulator-boot-on;
 				regulator-min-microvolt = <1000000>;
 				regulator-max-microvolt = <1000000>;
+				regulator-name = "vdd10_lcd";
 			};
 
-			rk808_ldo7_reg: LDO_REG7 {
+			vcc_18: LDO_REG7 {
 				regulator-always-on;
 				regulator-boot-on;
 				regulator-min-microvolt = <1800000>;
 				regulator-max-microvolt = <1800000>;
+				regulator-name = "vcc_18";
 			};
 
-			rk808_ldo8_reg: LDO_REG8 {
+			vcca_codec: LDO_REG8 {
 				regulator-always-on;
 				regulator-boot-on;
 				regulator-min-microvolt = <3300000>;
 				regulator-max-microvolt = <3300000>;
+				regulator-name = "vcca_codec";
 			};
 
-			rk808_switch1_reg: SWITCH_REG1 {
+			vcc_wl: SWITCH_REG1 {
 				regulator-always-on;
 				regulator-boot-on;
+				regulator-name = "vcc_wl";
 			};
 
-			rk808_switch2_reg: SWITCH_REG2 {
+			vcc_lcd: SWITCH_REG2 {
 				regulator-always-on;
 				regulator-boot-on;
+				regulator-name = "vcc_lcd";
 			};
 		};
 	};
