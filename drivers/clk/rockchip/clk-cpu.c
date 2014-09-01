@@ -54,6 +54,10 @@
  */
 struct rockchip_cpuclk {
 	struct clk_hw				hw;
+
+	struct clk_mux				cpu_mux;
+	const struct clk_ops			*cpu_mux_ops;
+
 	struct clk				*alt_parent;
 	void __iomem				*reg_base;
 	struct notifier_block			clk_nb;
@@ -146,7 +150,7 @@ static int rockchip_cpuclk_pre_rate_change(struct rockchip_cpuclk *cpuclk,
 		if (!clksel->reg)
 			continue;
 
-		pr_debug("%s: setting reg 0x%x to 0x%x\n",
+		pr_info("%s: setting reg 0x%x to 0x%x\n",
 			 __func__, clksel->reg, clksel->val);
 		writel(clksel->val , cpuclk->reg_base + clksel->reg);
 	}
@@ -171,6 +175,9 @@ static int rockchip_cpuclk_post_rate_change(struct rockchip_cpuclk *cpuclk,
 			     reg_data->div_core_shift),
 	       cpuclk->reg_base + reg_data->core_reg);
 
+printk("clksel0 0x%x\n", readl(cpuclk->reg_base + RK2928_CLKSEL_CON(0)));
+printk("clksel1 0x%x\n", readl(cpuclk->reg_base + RK2928_CLKSEL_CON(1)));
+
 	spin_unlock(cpuclk->lock);
 	return 0;
 }
@@ -188,7 +195,7 @@ static int rockchip_cpuclk_notifier_cb(struct notifier_block *nb,
 	struct rockchip_cpuclk *cpuclk = to_rockchip_cpuclk_nb(nb);
 	int ret = 0;
 
-	pr_debug("%s: event %lu, old_rate %lu, new_rate: %lu\n",
+	pr_info("%s: event %lu, old_rate %lu, new_rate: %lu\n",
 		 __func__, event, ndata->old_rate, ndata->new_rate);
 	if (event == PRE_RATE_CHANGE)
 		ret = rockchip_cpuclk_pre_rate_change(cpuclk, ndata);
@@ -231,11 +238,14 @@ struct clk *rockchip_clk_register_cpuclk(const char *name,
 	/* only allow rate changes when we have a rate table */
 	init.flags = rate_table ? CLK_SET_RATE_PARENT : 0;
 
-	cpuclk->hw.init = &init;
+	/* disallow automatic parent changes by ccf */
+	init.flags |= CLK_SET_RATE_NO_REPARENT;
+
 	cpuclk->reg_base = reg_base;
 	cpuclk->lock = lock;
 	cpuclk->reg_data = reg_data;
 	cpuclk->clk_nb.notifier_call = rockchip_cpuclk_notifier_cb;
+	cpuclk->hw.init = &init;
 
 	cpuclk->alt_parent = __clk_lookup(parent_names[1]);
 	if (!cpuclk->alt_parent) {
