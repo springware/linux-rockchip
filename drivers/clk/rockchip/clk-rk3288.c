@@ -20,7 +20,7 @@
 #include "clk.h"
 
 #define RK3288_GRF_SOC_CON(x)	(0x244 + x * 4)
-#define RK3288_GRF_SOC_STATUS	0x280
+#define RK3288_GRF_SOC_STATUS	0x284
 
 enum rk3288_plls {
 	apll, dpll, cpll, gpll, npll,
