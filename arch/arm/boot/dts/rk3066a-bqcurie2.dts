@@ -24,6 +24,12 @@
 		reg = <0x60000000 0x40000000>;
 	};
 
+	cpus {
+		cpu@0 {
+			cpu0-supply = <&vdd_arm>;
+		};
+	};
+
 	vcc_sd0: fixed-regulator {
 		compatible = "regulator-fixed";
 		regulator-name = "sdmmc-supply";
@@ -59,7 +65,38 @@
 		/* VOL+ comes somehow thru the ADC */
 	};
 
-	iio_hwmon {
+	iio-keys {
+		compatible = "iio-keys";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		autorepeat;
+
+		button@0 {
+			io-channels = <&saradc 1>;
+			active-microvolt = <0>;
+			linux,code = <116>;
+			label = "IIO Key Vol+";
+			linux,input-type = <1>;
+		};
+
+		button@1 {
+			io-channels = <&saradc 1>;
+			active-microvolt = <327000>;
+			linux,code = <116>;
+			label = "IIO Key Vol-";
+			linux,input-type = <1>;
+		};
+
+		button@2 {
+			io-channels = <&saradc 1>;
+			active-microvolt = <812000>;
+			linux,code = <116>;
+			label = "IIO Key ESC";
+			linux,input-type = <1>;
+		};
+	};
+
+	iio-hwmon {
 		compatible = "iio-hwmon";
 		io-channels = <&saradc 0>, <&saradc 1>, <&saradc 2>;
 	};
@@ -86,9 +123,14 @@
 			thermal-sensors = <&cpu_temp>;
 
 			trips {
-				core_crit: core_crit {
-					temperature = <125000>; /* milliCelsius */
-					hysteresis = <2000>; /* milliCelsius */
+				cpu_hot: cpu-hot {
+					temperature = <80000>;
+					hysteresis = <2000>;
+					type = "hot";
+				};
+				cpu_crit: cpu-crit {
+					temperature = <125000>;
+					hysteresis = <2000>;
 					type = "critical";
 				};
 			};
