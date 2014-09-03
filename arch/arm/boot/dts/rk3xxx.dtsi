@@ -131,9 +131,6 @@
 		status = "disabled";
 	};
 
-/* GRF_SOC_CON1[0]: emac-mode, 0 rmii, 1 mi
- * GRF_SOC_CON1[1]: emac-speed, 0 10MHZ, 1 100MHZ
- */
 	emac: ethernet@10204000 {
 		compatible = "snps,arc-emac";
 		reg = <0x10204000 0x3c>;
@@ -141,11 +138,12 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 
-		clocks = <&cru HCLK_EMAC>;
-		max-speed = <100>;
+		rockchip,grf = <&grf>;
 
-		assigned-clocks = <&cru SCLK_MAC>;
-		assigned-clock-rates = <50000000>;
+		clocks = <&cru HCLK_EMAC>, <&cru SCLK_MAC>;
+		clock-names = "hclk", "macref";
+		max-speed = <100>;
+		phy-mode = "rmii";
 
 		status = "disabled";
 	};

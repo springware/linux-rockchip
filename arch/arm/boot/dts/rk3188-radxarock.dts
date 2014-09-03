@@ -100,12 +100,13 @@
 
 &emac {
 	status = "okay";
+	compatible = "rockchip,rk3188-emac";
 
 	pinctrl-names = "default";
 	pinctrl-0 = <&emac_xfer>, <&emac_mdio>, <&phy_int>;
 
-	mac-address = [ c6 ef 91 8e 60 4b ];
 	phy = <&phy0>;
+	phy-supply = <&vcc_rmii>;
 
 	phy0: ethernet-phy@0 {
 		reg = <0>;
@@ -113,8 +114,6 @@
 		interrupts = <26 IRQ_TYPE_LEVEL_LOW>;
 	};
 };
-
-
 
 &i2c1 {
 	status = "okay";
