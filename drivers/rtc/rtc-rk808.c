@@ -3,6 +3,9 @@
  *
  * Copyright (c) 2014, Fuzhou Rockchip Electronics Co., Ltd
  *
+ * Author: Chris Zhong <zyw@rock-chips.com>
+ * Author: Zhang Qing <zhanqging@rock-chips.com>
+ *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
  * version 2, as published by the Free Software Foundation.
@@ -61,6 +64,15 @@ static int rk808_rtc_readtime(struct device *dev, struct rtc_time *tm)
 	u8 rtc_data[NUM_TIME_REGS];
 	int ret;
 
+	/* Force an update of the shadowed registers right now */
+	ret = regmap_update_bits(rk808->regmap, RK808_RTC_CTRL_REG,
+				 BIT_RTC_CTRL_REG_RTC_GET_TIME,
+				 0);
+	if (ret) {
+		dev_err(dev, "Failed to update bits rtc_ctrl: %d\n", ret);
+		return ret;
+	}
+
 	ret = regmap_update_bits(rk808->regmap, RK808_RTC_CTRL_REG,
 				 BIT_RTC_CTRL_REG_RTC_GET_TIME,
 				 BIT_RTC_CTRL_REG_RTC_GET_TIME);
@@ -73,7 +85,7 @@ static int rk808_rtc_readtime(struct device *dev, struct rtc_time *tm)
 			       rtc_data, NUM_TIME_REGS);
 	if (ret) {
 		dev_err(dev, "Failed to bulk read rtc_data: %d\n", ret);
-		goto reset_read_sel;
+		return ret;
 	}
 
 	tm->tm_sec = bcd2bin(rtc_data[0] & SECONDS_REG_MSK);
@@ -87,11 +99,6 @@ static int rk808_rtc_readtime(struct device *dev, struct rtc_time *tm)
 		1900 + tm->tm_year, tm->tm_mon + 1, tm->tm_mday,
 		tm->tm_wday, tm->tm_hour , tm->tm_min, tm->tm_sec);
 
-reset_read_sel:
-	ret = regmap_update_bits(rk808->regmap, RK808_RTC_CTRL_REG,
-				 BIT_RTC_CTRL_REG_RTC_GET_TIME, 0);
-	if (ret)
-		dev_err(dev, "Failed to update bits rtc_ctrl: %d\n", ret);
 	return ret;
 }
 

@@ -6,13 +6,24 @@ Required properties:
 - interrupt-parent: The parent interrupt controller.
 - interrupts: the interrupt outputs of the controller.
 - #clock-cells: from common clock binding; shall be set to 1 (multiple clock
-  outputs)
+  outputs). See <dt-bindings/clock/rockchip,rk808.h> for clock IDs.
 
 Optional properties:
 - clock-output-names: From common clock binding to override the
   default output clock name
 - rockchip,system-power-controller: Telling whether or not this pmic is controlling
   the system power.
+- vcc1-supply:  The input supply for DCDC_REG1
+- vcc2-supply:  The input supply for DCDC_REG2
+- vcc3-supply:  The input supply for DCDC_REG3
+- vcc4-supply:  The input supply for DCDC_REG4
+- vcc6-supply:  The input supply for LDO_REG1 and LDO_REG2
+- vcc7-supply:  The input supply for LDO_REG3 and LDO_REG7
+- vcc8-supply:  The input supply for SWITCH_REG1
+- vcc9-supply:  The input supply for LDO_REG4 and LDO_REG5
+- vcc10-supply: The input supply for LDO_REG6
+- vcc11-supply: The input supply for LDO_REG8
+- vcc12-supply: The input supply for SWITCH_REG2
 
 Regulators: All the regulators of RK808 to be instantiated shall be
 listed in a child node named 'regulators'. Each regulator is represented

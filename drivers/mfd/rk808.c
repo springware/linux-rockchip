@@ -3,6 +3,9 @@
  *
  * Copyright (c) 2014, Fuzhou Rockchip Electronics Co., Ltd
  *
+ * Author: Chris Zhong <zyw@rock-chips.com>
+ * Author: Zhang Qing <zhangqing@rock-chips.com>
+ *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
  * version 2, as published by the Free Software Foundation.
@@ -136,11 +139,11 @@ static void rk808_device_shutdown(void)
 static int rk808_probe(struct i2c_client *client,
 		       const struct i2c_device_id *id)
 {
-	int i;
-	int ret;
-	int pm_off = 0;
-	struct rk808 *rk808;
 	struct device_node *np = client->dev.of_node;
+	struct rk808 *rk808;
+	int pm_off = 0;
+	int ret;
+	int i;
 
 	if (!client->irq) {
 		dev_err(&client->dev, "No interrupt support, no core IRQ\n");
@@ -178,6 +181,7 @@ static int rk808_probe(struct i2c_client *client,
 
 	rk808->i2c = client;
 	i2c_set_clientdata(client, rk808);
+
 	ret = mfd_add_devices(&client->dev, -1,
 			      rk808s, ARRAY_SIZE(rk808s),
 			      NULL, 0, regmap_irq_get_domain(rk808->irq_data));
@@ -186,13 +190,11 @@ static int rk808_probe(struct i2c_client *client,
 		goto err_irq;
 	}
 
-	if (np) {
-		pm_off = of_property_read_bool(np,
-					"rockchip,system-power-controller");
-		if (pm_off && !pm_power_off) {
-			rk808_i2c_client = client;
-			pm_power_off = rk808_device_shutdown;
-		}
+	pm_off = of_property_read_bool(np,
+				"rockchip,system-power-controller");
+	if (pm_off && !pm_power_off) {
+		rk808_i2c_client = client;
+		pm_power_off = rk808_device_shutdown;
 	}
 
 	return 0;
@@ -228,7 +230,7 @@ MODULE_DEVICE_TABLE(i2c, rk808_ids);
 static struct i2c_driver rk808_i2c_driver = {
 	.driver = {
 		.name = "rk808",
-		.of_match_table = of_match_ptr(rk808_of_match),
+		.of_match_table = rk808_of_match,
 	},
 	.probe    = rk808_probe,
 	.remove   = rk808_remove,

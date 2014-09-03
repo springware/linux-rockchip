@@ -3,6 +3,9 @@
  *
  * Copyright (c) 2014, Fuzhou Rockchip Electronics Co., Ltd
  *
+ * Author: Chris Zhong<zyw@rock-chips.com>
+ * Author: Zhang Qing<zhanqging@rock-chips.com>
+ *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
  * version 2, as published by the Free Software Foundation.
@@ -24,11 +27,6 @@
 #define RK808_BUCK_VSEL_MASK	0x3f
 #define RK808_BUCK4_VSEL_MASK	0xf
 #define RK808_LDO_VSEL_MASK	0x1f
-
-struct rk808_regulator {
-	struct regulator_init_data *rk808_init_data[RK808_NUM_REGULATORS];
-	struct device_node *of_node[RK808_NUM_REGULATORS];
-};
 
 static const int buck_set_vol_base_addr[] = {
 	RK808_BUCK1_ON_VSEL_REG,
@@ -138,7 +136,7 @@ static const struct regulator_desc rk808_reg[] = {
 		.id = RK808_ID_DCDC4,
 		.ops = &rk808_reg_ops,
 		.type = REGULATOR_VOLTAGE,
-		.n_voltages = 17,
+		.n_voltages = 16,
 		.linear_ranges = rk808_buck4_voltage_ranges,
 		.n_linear_ranges = ARRAY_SIZE(rk808_buck4_voltage_ranges),
 		.vsel_reg = RK808_BUCK4_ON_VSEL_REG,
@@ -296,17 +294,14 @@ static struct of_regulator_match rk808_reg_matches[] = {
 	[RK808_ID_SWITCH2]	= { .name = "SWITCH_REG2" },
 };
 
-static int rk808_regulator_dts(struct i2c_client *client,
-			       struct rk808_regulator *rk808_regulator)
+static int rk808_regulator_probe(struct platform_device *pdev)
 {
-	struct device_node *np, *reg_np;
-	int i, ret;
-
-	np = client->dev.of_node;
-	if (!np) {
-		dev_err(&client->dev, "could not find pmic sub-node\n");
-		return -ENXIO;
-	}
+	struct rk808 *rk808 = dev_get_drvdata(pdev->dev.parent);
+	struct i2c_client *client = rk808->i2c;
+	struct regulator_config config = {};
+	struct regulator_dev *rk808_rdev;
+	int ret = 0;
+	int i = 0;
 
 	reg_np = of_get_child_by_name(np, "regulators");
 	if (!reg_np)
@@ -314,59 +309,20 @@ static int rk808_regulator_dts(struct i2c_client *client,
 
 	ret = of_regulator_match(&client->dev, reg_np, rk808_reg_matches,
 				 RK808_NUM_REGULATORS);
-	if (ret < 0) {
-		dev_err(&client->dev,
-			"failed to parse regulator data: %d\n", ret);
+	if (ret < 0)
 		return ret;
-	}
 
+	/* Instantiate the regulators */
 	for (i = 0; i < RK808_NUM_REGULATORS; i++) {
 		if (!rk808_reg_matches[i].init_data ||
 		    !rk808_reg_matches[i].of_node)
 			continue;
 
-		rk808_regulator->rk808_init_data[i] =
-				rk808_reg_matches[i].init_data;
-		rk808_regulator->of_node[i] = rk808_reg_matches[i].of_node;
-	}
-
-	return 0;
-}
-
-static int rk808_regulator_probe(struct platform_device *pdev)
-{
-	struct rk808 *rk808 = dev_get_drvdata(pdev->dev.parent);
-	struct i2c_client *client = rk808->i2c;
-	struct rk808_regulator *rk808_regulator;
-	struct regulator_config config = {};
-	struct regulator_dev *rk808_rdev;
-	struct regulator_init_data *reg_data;
-	int i = 0;
-	int ret = 0;
-
-	rk808_regulator = devm_kzalloc(&pdev->dev, sizeof(*rk808_regulator),
-				       GFP_KERNEL);
-	if (!rk808_regulator)
-		return -ENOMEM;
-
-	ret = rk808_regulator_dts(client, rk808_regulator);
-	if (ret)
-		return ret;
-
-	/* Instantiate the regulators */
-	for (i = 0; i < RK808_NUM_REGULATORS; i++) {
-		reg_data = rk808_regulator->rk808_init_data[i];
-		if (!reg_data)
-			continue;
-
 		config.dev = &client->dev;
 		config.driver_data = rk808;
 		config.regmap = rk808->regmap;
-
-		if (client->dev.of_node)
-			config.of_node = rk808_regulator->of_node[i];
-
-		config.init_data = reg_data;
+		config.of_node = rk808_reg_matches[i].of_node;
+		config.init_data = rk808_reg_matches[i].init_data;
 
 		rk808_rdev = devm_regulator_register(&pdev->dev,
 						     &rk808_reg[i], &config);
@@ -376,6 +332,7 @@ static int rk808_regulator_probe(struct platform_device *pdev)
 			return PTR_ERR(rk808_rdev);
 		}
 	}
+
 	return 0;
 }
 

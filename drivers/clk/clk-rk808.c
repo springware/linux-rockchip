@@ -3,6 +3,8 @@
  *
  * Copyright (c) 2014, Fuzhou Rockchip Electronics Co., Ltd
  *
+ * Author:Chris Zhong <zyw@rock-chips.com>
+ *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
  * version 2, as published by the Free Software Foundation.
@@ -20,6 +22,8 @@
 #include <linux/platform_device.h>
 #include <linux/mfd/rk808.h>
 #include <linux/i2c.h>
+
+#define RK808_NR_OUTPUT 2
 
 struct rk808_clkout {
 	struct rk808 *rk808;
@@ -39,7 +43,7 @@ static int rk808_clkout1_is_prepared(struct clk_hw *hw)
 	return 1;
 }
 
-static int rk808_clkout2_control(struct clk_hw *hw, bool enable)
+static int rk808_clkout2_enable(struct clk_hw *hw, bool enable)
 {
 	struct rk808_clkout *rk808_clkout = container_of(hw,
 							 struct rk808_clkout,
@@ -52,12 +56,12 @@ static int rk808_clkout2_control(struct clk_hw *hw, bool enable)
 
 static int rk808_clkout2_prepare(struct clk_hw *hw)
 {
-	return rk808_clkout2_control(hw, true);
+	return rk808_clkout2_enable(hw, true);
 }
 
 static void rk808_clkout2_unprepare(struct clk_hw *hw)
 {
-	rk808_clkout2_control(hw, false);
+	rk808_clkout2_enable(hw, false);
 }
 
 static int rk808_clkout2_is_prepared(struct clk_hw *hw)
@@ -104,8 +108,8 @@ static int rk808_clkout_probe(struct platform_device *pdev)
 
 	rk808_clkout->rk808 = rk808;
 
-	clk_table = devm_kzalloc(&client->dev,
-				 2 * sizeof(struct clk *), GFP_KERNEL);
+	clk_table = devm_kcalloc(&client->dev, RK808_NR_OUTPUT,
+				 sizeof(struct clk *), GFP_KERNEL);
 	if (!clk_table)
 		return -ENOMEM;
 
@@ -139,7 +143,7 @@ static int rk808_clkout_probe(struct platform_device *pdev)
 		return PTR_ERR(clk_table[1]);
 
 	rk808_clkout->clk_data.clks = clk_table;
-	rk808_clkout->clk_data.clk_num = 2;
+	rk808_clkout->clk_data.clk_num = RK808_NR_OUTPUT;
 
 	return of_clk_add_provider(node, of_clk_src_onecell_get,
 				   &rk808_clkout->clk_data);
