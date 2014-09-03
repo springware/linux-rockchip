@@ -100,7 +100,6 @@
 
 &emac {
 	status = "okay";
-	compatible = "rockchip,rk3188-emac";
 
 	pinctrl-names = "default";
 	pinctrl-0 = <&emac_xfer>, <&emac_mdio>, <&phy_int>;

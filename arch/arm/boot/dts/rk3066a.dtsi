@@ -201,6 +201,25 @@
 			bias-disable;
 		};
 
+		emac {
+			emac_xfer: emac-xfer {
+				rockchip,pins =
+						<RK_GPIO1 16 RK_FUNC_2 &pcfg_pull_default>, /* mac_clk */
+						<RK_GPIO1 17 RK_FUNC_2 &pcfg_pull_default>, /* tx_en */
+						<RK_GPIO1 18 RK_FUNC_2 &pcfg_pull_default>, /* txd1 */
+						<RK_GPIO1 19 RK_FUNC_2 &pcfg_pull_default>, /* txd0 */
+						<RK_GPIO1 20 RK_FUNC_2 &pcfg_pull_default>, /* rx_err */
+						<RK_GPIO1 21 RK_FUNC_2 &pcfg_pull_default>, /* crs_dvalid */
+						<RK_GPIO1 22 RK_FUNC_2 &pcfg_pull_default>, /* rxd1 */
+						<RK_GPIO1 23 RK_FUNC_2 &pcfg_pull_default>; /* rxd0 */
+			};
+
+			emac_mdio: emac-mdio {
+				rockchip,pins = <RK_GPIO1 24 RK_FUNC_2 &pcfg_pull_default>,
+						<RK_GPIO1 25 RK_FUNC_2 &pcfg_pull_default>;
+			};
+		};
+
 		i2c0 {
 			i2c0_xfer: i2c0-xfer {
 				rockchip,pins = <RK_GPIO2 28 RK_FUNC_1 &pcfg_pull_none>,
