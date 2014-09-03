@@ -300,8 +300,11 @@ static int rk808_regulator_probe(struct platform_device *pdev)
 	struct i2c_client *client = rk808->i2c;
 	struct regulator_config config = {};
 	struct regulator_dev *rk808_rdev;
+	struct device_node *np, *reg_np;
 	int ret = 0;
 	int i = 0;
+
+	np = client->dev.of_node;
 
 	reg_np = of_get_child_by_name(np, "regulators");
 	if (!reg_np)
