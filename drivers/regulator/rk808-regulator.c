@@ -3,6 +3,9 @@
  *
  * Copyright (c) 2014, Fuzhou Rockchip Electronics Co., Ltd
  *
+ * Author: Chris Zhong <zyw@rock-chips.com>
+ * Author: Zhang Qing <zhangqing@rock-chips.com>
+ *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
  * version 2, as published by the Free Software Foundation.
@@ -11,24 +14,27 @@
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
+ *
  */
 
 #include <linux/module.h>
+#include <linux/init.h>
 #include <linux/i2c.h>
+#include <linux/err.h>
+#include <linux/platform_device.h>
 #include <linux/mfd/rk808.h>
+#include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/regulator/driver.h>
 #include <linux/regulator/of_regulator.h>
-
-/* Field Definitions */
+#include <linux/regmap.h>
+#include <linux/slab.h>
+/*
+ * Field Definitions.
+ */
 #define RK808_BUCK_VSEL_MASK	0x3f
 #define RK808_BUCK4_VSEL_MASK	0xf
 #define RK808_LDO_VSEL_MASK	0x1f
-
-struct rk808_regulator {
-	struct regulator_init_data *rk808_init_data[RK808_NUM_REGULATORS];
-	struct device_node *of_node[RK808_NUM_REGULATORS];
-};
 
 static const int buck_set_vol_base_addr[] = {
 	RK808_BUCK1_ON_VSEL_REG,
@@ -44,6 +50,10 @@ static const int buck_contr_base_addr[] = {
 	RK808_BUCK4_CONFIG_REG,
 };
 
+#define rk808_BUCK_SET_VOL_REG(x) (buck_set_vol_base_addr[x])
+#define rk808_BUCK_CONTR_REG(x) (buck_contr_base_addr[x])
+#define rk808_LDO_SET_VOL_REG(x) (ldo_set_vol_base_addr[x])
+
 static const int ldo_set_vol_base_addr[] = {
 	RK808_LDO1_ON_VSEL_REG,
 	RK808_LDO2_ON_VSEL_REG,
@@ -55,7 +65,9 @@ static const int ldo_set_vol_base_addr[] = {
 	RK808_LDO8_ON_VSEL_REG,
 };
 
-/* rk808 voltage number */
+/*
+ * rk808 voltage number
+ */
 static const struct regulator_linear_range rk808_buck_voltage_ranges[] = {
 	REGULATOR_LINEAR_RANGE(700000, 0, 63, 12500),
 };
@@ -283,7 +295,7 @@ static struct of_regulator_match rk808_reg_matches[] = {
 };
 
 static int rk808_regulator_dts(struct i2c_client *client,
-			       struct rk808_regulator *rk808_regulator)
+			       struct rk808_board *pdata)
 {
 	struct device_node *np, *reg_np;
 	int i, ret;
@@ -311,9 +323,8 @@ static int rk808_regulator_dts(struct i2c_client *client,
 		    !rk808_reg_matches[i].of_node)
 			continue;
 
-		rk808_regulator->rk808_init_data[i] =
-				rk808_reg_matches[i].init_data;
-		rk808_regulator->of_node[i] = rk808_reg_matches[i].of_node;
+		pdata->rk808_init_data[i] = rk808_reg_matches[i].init_data;
+		pdata->of_node[i] = rk808_reg_matches[i].of_node;
 	}
 
 	return 0;
@@ -323,25 +334,26 @@ static int rk808_regulator_probe(struct platform_device *pdev)
 {
 	struct rk808 *rk808 = dev_get_drvdata(pdev->dev.parent);
 	struct i2c_client *client = rk808->i2c;
-	struct rk808_regulator *rk808_regulator;
+	struct rk808_board *pdata = dev_get_platdata(&client->dev);
 	struct regulator_config config = {};
 	struct regulator_dev *rk808_rdev;
 	struct regulator_init_data *reg_data;
 	int i = 0;
 	int ret = 0;
 
-	rk808_regulator = devm_kzalloc(&pdev->dev, sizeof(*rk808_regulator),
-				       GFP_KERNEL);
-	if (!rk808_regulator)
-		return -ENOMEM;
+	if (!pdata) {
+		pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
+		if (!pdata)
+			return -ENOMEM;
+	}
 
-	ret = rk808_regulator_dts(client, rk808_regulator);
+	ret = rk808_regulator_dts(client, pdata);
 	if (ret)
 		return ret;
 
 	/* Instantiate the regulators */
 	for (i = 0; i < RK808_NUM_REGULATORS; i++) {
-		reg_data = rk808_regulator->rk808_init_data[i];
+		reg_data = pdata->rk808_init_data[i];
 		if (!reg_data)
 			continue;
 
@@ -350,7 +362,7 @@ static int rk808_regulator_probe(struct platform_device *pdev)
 		config.regmap = rk808->regmap;
 
 		if (client->dev.of_node)
-			config.of_node = rk808_regulator->of_node[i];
+			config.of_node = pdata->of_node[i];
 
 		reg_data->supply_regulator = rk808_reg[i].name;
 		config.init_data = reg_data;
