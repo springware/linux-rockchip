@@ -386,7 +386,7 @@
 };
 
 &emac {
-	compatible = "rockchip,rk3188-emac", "snps,arc-emac";
+	compatible = "rockchip,rk3188-emac";
 };
 
 &global_timer {

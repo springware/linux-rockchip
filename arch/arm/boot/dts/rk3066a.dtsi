@@ -392,6 +392,10 @@
 	};
 };
 
+&emac {
+	compatible = "rockchip,rk3066-emac";
+};
+
 &i2c0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&i2c0_xfer>;
