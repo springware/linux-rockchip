@@ -24,7 +24,7 @@
 		reg = <0x60000000 0x40000000>;
 	};
 
-	vcc_sd0: fixed-regulator {
+	vcc_sd0: sdmmc-regulator {
 		compatible = "regulator-fixed";
 		regulator-name = "sdmmc-supply";
 		regulator-min-microvolt = <3000000>;
@@ -72,22 +72,6 @@
 			label = "IIO Key Vol+";
 			linux,input-type = <1>;
 		};
-
-		button@1 {
-			io-channels = <&saradc 1>;
-			active-microvolt = <327000>;
-			linux,code = <116>;
-			label = "IIO Key Vol-";
-			linux,input-type = <1>;
-		};
-
-		button@2 {
-			io-channels = <&saradc 1>;
-			active-microvolt = <812000>;
-			linux,code = <116>;
-			label = "IIO Key ESC";
-			linux,input-type = <1>;
-		};
 	};
 
 	iio-hwmon {
@@ -95,6 +79,7 @@
 		io-channels = <&saradc 0>, <&saradc 1>, <&saradc 2>;
 	};
 
+	/* FIXME: move to rk3066a.dtsi? */
 	cpu_temp: iio-thermal {
 		compatible = "iio-thermal";
 		io-channels = <&tsadc 0>;
@@ -109,6 +94,7 @@
 		#thermal-sensor-cells = <0>;
 	};
 
+	/* FIXME: move to rk3066a.dtsi? */
 	thermal-zones {
 		cpu_thermal: cpu-thermal {
 			polling-delay-passive = <250>;
