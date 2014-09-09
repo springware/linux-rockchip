@@ -785,6 +785,11 @@ static const char *rk3288_critical_clocks[] __initconst = {
 	"aclk_peri",
 };
 
+static const char *rk3288_critical_clocks[] __initconst = {
+	"aclk_cpu",
+	"aclk_peri",
+};
+
 static void __init rk3288_clk_init(struct device_node *np)
 {
 	void __iomem *reg_base;

@@ -42,6 +42,8 @@
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
 
+#include <linux/usb/of.h>
+
 #include "core.h"
 #include "hcd.h"
 
@@ -127,6 +129,7 @@ static const struct of_device_id dwc2_of_match_table[] = {
 	{ .compatible = "brcm,bcm2835-usb", .data = &params_bcm2835 },
 	{ .compatible = "rockchip,rk3066-usb", .data = &params_rk3066 },
 	{ .compatible = "snps,dwc2", .data = NULL },
+	{ .compatible = "samsung,s3c6400-hsotg", .data = NULL},
 	{},
 };
 MODULE_DEVICE_TABLE(of, dwc2_of_match_table);
@@ -199,6 +202,8 @@ static int dwc2_driver_probe(struct platform_device *dev)
 
 	dev_dbg(&dev->dev, "mapped PA %08lx to VA %p\n",
 		(unsigned long)res->start, hsotg->regs);
+
+	hsotg->dr_mode = of_usb_get_dr_mode(dev->dev.of_node);
 
 	retval = dwc2_hcd_init(hsotg, irq, params);
 	if (retval)
