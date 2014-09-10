@@ -110,7 +110,7 @@ static irqreturn_t rockchip_saradc_isr(int irq, void *dev_id)
 
 	/* Read value */
 	info->last_val = readl_relaxed(info->regs + SARADC_DATA);
-	info->last_val &= BIT(info->data->num_bits) - 1;
+	info->last_val &= GENMASK(info->data->num_bits - 1, 0);
 
 	/* Clear irq & power down adc */
 	writel_relaxed(0, info->regs + SARADC_CTRL);
