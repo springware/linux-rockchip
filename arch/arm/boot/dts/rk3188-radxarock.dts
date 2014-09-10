@@ -118,17 +118,6 @@
 	status = "okay";
 	clock-frequency = <400000>;
 
-	/* due to "random" init ordering and unsupported regulator handling
-	 * in the arc_emac, using the rk3x-i2c breaks the network interface.
-	 * There is a fix in the works though.
-	 */
-	compatible = "i2c-gpio";
-	gpios = <&gpio1 26 0   /* sda */
-		 &gpio1 27 0>; /* scl */
-	i2c-gpio,sda-open-drain;
-	i2c-gpio,scl-open-drain;
-	i2c-gpio,delay-us = <2>;	/* ~100 kHz */
-
 	rtc@51 {
 		compatible = "haoyu,hym8563";
 		reg = <0x51>;
@@ -139,7 +128,6 @@
 		#clock-cells = <0>;
 		clock-output-names = "xin32k";
 	};
-
 
 	act8846: act8846@5a {
 		compatible = "active-semi,act8846";
