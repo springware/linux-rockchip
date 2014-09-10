@@ -298,15 +298,12 @@ static int rk808_regulator_probe(struct platform_device *pdev)
 {
 	struct rk808 *rk808 = dev_get_drvdata(pdev->dev.parent);
 	struct i2c_client *client = rk808->i2c;
+	struct device_node *reg_np;
 	struct regulator_config config = {};
 	struct regulator_dev *rk808_rdev;
-	struct device_node *np, *reg_np;
-	int ret = 0;
-	int i = 0;
+	int ret, i;
 
-	np = client->dev.of_node;
-
-	reg_np = of_get_child_by_name(np, "regulators");
+	reg_np = of_get_child_by_name(client->dev.of_node, "regulators");
 	if (!reg_np)
 		return -ENXIO;
 
@@ -351,6 +348,6 @@ module_platform_driver(rk808_regulator_driver);
 
 MODULE_DESCRIPTION("regulator driver for the rk808 series PMICs");
 MODULE_AUTHOR("Chris Zhong<zyw@rock-chips.com>");
-MODULE_AUTHOR("Zhang Qing<zhanqging@rock-chips.com>");
+MODULE_AUTHOR("Zhang Qing<zhangqing@rock-chips.com>");
 MODULE_LICENSE("GPL");
 MODULE_ALIAS("platform:rk808-regulator");
