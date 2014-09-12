@@ -499,6 +499,13 @@ config REGULATOR_ST_PWM
 	help
 	 This driver supports ST's PWM controlled voltage regulators.
 
+config REGULATOR_SYR82X
+	tristate "Silergy SYR82x voltage regulator"
+	depends on I2C
+	select REGMAP_I2C
+	help
+	  Support the voltage regulators of the SYR82X series.
+
 config REGULATOR_TI_ABB
 	tristate "TI Adaptive Body Bias on-chip LDO"
 	depends on ARCH_OMAP
