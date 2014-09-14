@@ -19,6 +19,7 @@
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
 #include <linux/regulator/of_regulator.h>
+#include <linux/of_device.h>
 #include <linux/i2c.h>
 #include <linux/slab.h>
 #include <linux/regmap.h>
@@ -51,6 +52,11 @@
 
 #define FAN53555_NVOLTAGES	64	/* Numbers of voltages */
 
+enum fan53555_vendor {
+	FAN53555_VENDOR_FAIRCHILD = 0,
+	FAN53555_VENDOR_SILERGY,
+};
+
 /* IC Type */
 enum {
 	FAN53555_CHIP_ID_00 = 0,
@@ -61,7 +67,12 @@ enum {
 	FAN53555_CHIP_ID_05,
 };
 
+enum {
+	SILERGY_SYR82X = 8,
+};
+
 struct fan53555_device_info {
+	enum fan53555_vendor vendor;
 	struct regmap *regmap;
 	struct device *dev;
 	struct regulator_desc desc;
@@ -149,30 +160,8 @@ static struct regulator_ops fan53555_regulator_ops = {
 	.get_mode = fan53555_get_mode,
 };
 
-/* For 00,01,03,05 options:
- * VOUT = 0.60V + NSELx * 10mV, from 0.60 to 1.23V.
- * For 04 option:
- * VOUT = 0.603V + NSELx * 12.826mV, from 0.603 to 1.411V.
- * */
-static int fan53555_device_setup(struct fan53555_device_info *di,
-				struct fan53555_platform_data *pdata)
+static int fan53555_voltages_setup_fairchild(struct fan53555_device_info *di)
 {
-	unsigned int reg, data, mask;
-
-	/* Setup voltage control register */
-	switch (pdata->sleep_vsel_id) {
-	case FAN53555_VSEL_ID_0:
-		di->sleep_reg = FAN53555_VSEL0;
-		di->vol_reg = FAN53555_VSEL1;
-		break;
-	case FAN53555_VSEL_ID_1:
-		di->sleep_reg = FAN53555_VSEL1;
-		di->vol_reg = FAN53555_VSEL0;
-		break;
-	default:
-		dev_err(di->dev, "Invalid VSEL ID!\n");
-		return -EINVAL;
-	}
 	/* Init voltage range and step */
 	switch (di->chip_id) {
 	case FAN53555_CHIP_ID_00:
@@ -191,6 +180,68 @@ static int fan53555_device_setup(struct fan53555_device_info *di,
 			"Chip ID[%d]\n not supported!\n", di->chip_id);
 		return -EINVAL;
 	}
+
+	return 0;
+}
+
+static int fan53555_voltages_setup_silergy(struct fan53555_device_info *di)
+{
+	/* Init voltage range and step */
+	switch (di->chip_id) {
+	case SILERGY_SYR82X:
+		di->vsel_min = 712500;
+		di->vsel_step = 12500;
+		break;
+	default:
+		dev_err(di->dev,
+			"Chip ID[%d]\n not supported!\n", di->chip_id);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+/* For 00,01,03,05 options:
+ * VOUT = 0.60V + NSELx * 10mV, from 0.60 to 1.23V.
+ * For 04 option:
+ * VOUT = 0.603V + NSELx * 12.826mV, from 0.603 to 1.411V.
+ * */
+static int fan53555_device_setup(struct fan53555_device_info *di,
+				struct fan53555_platform_data *pdata)
+{
+	unsigned int reg, data, mask;
+	int ret = 0;
+
+	/* Setup voltage control register */
+	switch (pdata->sleep_vsel_id) {
+	case FAN53555_VSEL_ID_0:
+		di->sleep_reg = FAN53555_VSEL0;
+		di->vol_reg = FAN53555_VSEL1;
+		break;
+	case FAN53555_VSEL_ID_1:
+		di->sleep_reg = FAN53555_VSEL1;
+		di->vol_reg = FAN53555_VSEL0;
+		break;
+	default:
+		dev_err(di->dev, "Invalid VSEL ID!\n");
+		return -EINVAL;
+	}
+
+	switch (di->vendor) {
+	case FAN53555_VENDOR_FAIRCHILD:
+		ret = fan53555_voltages_setup_fairchild(di);
+		break;
+	case FAN53555_VENDOR_SILERGY:
+		ret = fan53555_voltages_setup_silergy(di);
+		break;
+	default:
+		dev_err(di->dev,
+			"vendor %d not supported!\n", di->chip_id);
+		return -EINVAL;
+	}
+	if (ret < 0)
+		return ret;
+
 	/* Init slew rate */
 	if (pdata->slew_rate & 0x7)
 		di->slew_rate = pdata->slew_rate;
@@ -272,6 +323,21 @@ static struct fan53555_platform_data *fan53555_parse_dt(struct device *dev,
 	return pdata;
 }
 
+static const struct of_device_id fan53555_dt_ids[] = {
+	{
+		.compatible = "fairchild,fan53555",
+		.data = (void *)FAN53555_VENDOR_FAIRCHILD
+	}, {
+		.compatible = "silergy,syr827",
+		.data = (void *)FAN53555_VENDOR_SILERGY,
+	}, {
+		.compatible = "silergy,syr828",
+		.data = (void *)FAN53555_VENDOR_SILERGY,
+	},
+	{ }
+};
+MODULE_DEVICE_TABLE(of, fan53555_dt_ids);
+
 static int fan53555_regulator_probe(struct i2c_client *client,
 				const struct i2c_device_id *id)
 {
@@ -295,6 +361,19 @@ static int fan53555_regulator_probe(struct i2c_client *client,
 					GFP_KERNEL);
 	if (!di)
 		return -ENOMEM;
+
+	if (client->dev.of_node) {
+		const struct of_device_id *match;
+
+		match = of_match_device(of_match_ptr(fan53555_dt_ids),
+					&client->dev);
+		if (!match)
+			return -ENODEV;
+
+		di->vendor = (int) match->data;
+	} else {
+		di->vendor = id->driver_data;
+	}
 
 	di->regmap = devm_regmap_init_i2c(client, &fan53555_regmap_config);
 	if (IS_ERR(di->regmap)) {
@@ -341,14 +420,9 @@ static int fan53555_regulator_probe(struct i2c_client *client,
 
 }
 
-static const struct of_device_id fan53555_dt_ids[] = {
-	{ .compatible = "fairchild,fan53555" },
-	{ }
-};
-MODULE_DEVICE_TABLE(of, fan53555_dt_ids);
-
 static const struct i2c_device_id fan53555_id[] = {
-	{"fan53555", -1},
+	{ .name = "fan53555", .driver_data = FAN53555_VENDOR_FAIRCHILD },
+	{ .name = "syr82x", .driver_data = FAN53555_VENDOR_SILERGY },
 	{ },
 };
 
