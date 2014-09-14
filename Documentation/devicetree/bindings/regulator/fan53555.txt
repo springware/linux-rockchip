@@ -1,0 +1,25 @@
+Binding for Fairchild FAN53555 regulators
+
+Required properties:
+  - compatible: "fairchild,fan53555"
+  - reg: I2C address
+
+Optional properties:
+  - fairchild,suspend-regulator: regulator number to use for suspend voltages
+		possible values are either <0> or <1>
+  - fairchild,slew-rate-microvolt: slew rate to use for positive voltage
+		transistions in microvolts per us, possible values are:
+		64000, 32000, 16000, 8000, 4000, 2000, 1000, 500
+  - vin-supply: regulator supplying the vin pin
+
+Example:
+
+	regulator@40 {
+		compatible = "fairchild,fan53555";
+		regulator-name = "fan53555";
+		regulator-min-microvolt = <1000000>;
+		regulator-max-microvolt = <1800000>;
+		vin-supply = <&parent_reg>;
+		fairchild,suspend-regulator = <1>;
+		fairchild,slew-rate-microvolt = <64000>;
+	};
