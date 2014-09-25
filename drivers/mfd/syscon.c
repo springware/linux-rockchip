@@ -73,6 +73,7 @@ static struct syscon *of_syscon_register(struct device_node *np)
 			goto err_pdev;
 		}
 		pdev->dev.of_node = of_node_get(np);
+		of_device_make_bus_id(&pdev->dev);
 	}
 
 	regmap = devm_regmap_init_mmio(&pdev->dev, base, &syscon_regmap_config);
