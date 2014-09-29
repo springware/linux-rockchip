@@ -176,18 +176,6 @@ void __init rockchip_clk_init(struct device_node *np, void __iomem *base,
 	of_clk_add_provider(np, of_clk_src_onecell_get, &clk_data);
 }
 
-/**
- * Set clock-defaults again, after grf regmap is available for PLLs.
- */
-static int __init rockchip_clk_set_defaults(void)
-{
-	if (cru_node)
-		return of_clk_set_defaults(cru_node, true);
-
-	return 0;
-}
-arch_initcall(rockchip_clk_set_defaults);
-
 struct regmap *rockchip_clk_get_grf(void)
 {
 	if (IS_ERR(grf))
