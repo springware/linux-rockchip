@@ -27,27 +27,6 @@
 #include <linux/clocksource.h>
 #include <linux/clk-provider.h>
 
-static void __init rockchip_timer_init(void)
-{
-	void __iomem *timer7_base;
-
-	of_clk_init(NULL);
-
-	if (of_machine_is_compatible("rockchip,rk3288")) {
-		/* enable timer7 for core */
-		timer7_base = ioremap(0xFF810000, 0x4000) + 0x20;
-		writel_relaxed(0, timer7_base + 0x10);
-		dsb();
-		writel_relaxed(0xFFFFFFFF, timer7_base + 0x00);
-		writel_relaxed(0xFFFFFFFF, timer7_base + 0x04);
-		dsb();
-		writel_relaxed(1, timer7_base + 0x10);
-		dsb();
-	}
-
-	clocksource_of_init();
-}
-
 static void __init rockchip_dt_init(void)
 {
 	of_platform_populate(NULL, of_default_bus_match_table, NULL, NULL);
@@ -66,7 +45,6 @@ static const char * const rockchip_board_dt_compat[] = {
 DT_MACHINE_START(ROCKCHIP_DT, "Rockchip Cortex-A9 (Device Tree)")
 	.l2c_aux_val	= 0,
 	.l2c_aux_mask	= ~0,
-	.init_time	= rockchip_timer_init,
 	.init_machine	= rockchip_dt_init,
 	.dt_compat	= rockchip_board_dt_compat,
 MACHINE_END
