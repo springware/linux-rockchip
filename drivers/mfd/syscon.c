@@ -44,11 +44,11 @@ static struct regmap_config syscon_regmap_config = {
 
 static struct syscon *of_syscon_register(struct device_node *np)
 {
-	struct platform_device *pdev = NULL;
 	struct syscon *syscon;
 	struct regmap *regmap;
 	void __iomem *base;
 	int ret;
+	enum regmap_endian endian = REGMAP_ENDIAN_DEFAULT;
 
 	if (!of_device_is_compatible(np, "syscon"))
 		return ERR_PTR(-EINVAL);
@@ -63,22 +63,19 @@ static struct syscon *of_syscon_register(struct device_node *np)
 		goto err_map;
 	}
 
-	/* if device is already populated and available then use it */
-	pdev = of_find_device_by_node(np);
-	if (!pdev) {
-		/* for early users create dummy syscon device and use it */
-		pdev = platform_device_alloc("dummy-syscon", -1);
-		if (!pdev) {
-			ret = -ENOMEM;
-			goto err_pdev;
-		}
-		pdev->dev.of_node = of_node_get(np);
-		of_device_make_bus_id(&pdev->dev);
-	}
+	/* Parse the device's DT node for an endianness specification */
+	if (of_property_read_bool(np, "big-endian"))
+		endian = REGMAP_ENDIAN_BIG;
+	 else if (of_property_read_bool(np, "little-endian"))
+		endian = REGMAP_ENDIAN_LITTLE;
 
-	regmap = devm_regmap_init_mmio(&pdev->dev, base, &syscon_regmap_config);
+	/* If the endianness was specified in DT, use that */
+	if (endian != REGMAP_ENDIAN_DEFAULT)
+		syscon_regmap_config.val_format_endian = endian;
+
+	regmap = regmap_init_mmio(NULL, base, &syscon_regmap_config);
 	if (IS_ERR(regmap)) {
-		dev_err(&pdev->dev, "regmap init failed\n");
+		pr_err("regmap init failed\n");
 		ret = PTR_ERR(regmap);
 		goto err_regmap;
 	}
@@ -90,14 +87,15 @@ static struct syscon *of_syscon_register(struct device_node *np)
 	list_add_tail(&syscon->list, &syscon_list);
 	spin_unlock(&syscon_list_slock);
 
+	/* Change back endianness of syscon_regmap_config.
+	 * As this is static config in this file and in one system we may
+	 * have more than one syscon
+	 */
+	syscon_regmap_config.val_format_endian = REGMAP_ENDIAN_DEFAULT;
+
 	return syscon;
 
 err_regmap:
-	if (!strcmp(pdev->name, "dummy-syscon")) {
-		of_node_put(np);
-		platform_device_put(pdev);
-	}
-err_pdev:
 	iounmap(base);
 err_map:
 	kfree(syscon);
