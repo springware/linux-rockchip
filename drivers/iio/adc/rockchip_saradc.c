@@ -234,7 +234,7 @@ static int rockchip_saradc_probe(struct platform_device *pdev)
 	}
 
 	/*
-	 * Use a default of 1MHz for the converter clock.
+	 * Use a default value for the converter clock.
 	 * This may become user-configurable in the future.
 	 */
 	ret = clk_set_rate(info->clk, info->data->clk_rate);
