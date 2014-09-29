@@ -78,26 +78,6 @@
 		};
 	};
 
-	dwc2@10180000 {
-		compatible = "snps,dwc2";
-		reg = <0x10180000 0x40000>;
-		interrupts = <GIC_SPI 16 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&cru HCLK_OTG0>;
-		clock-names = "otg";
-//		phys = <&usbphy0>;
-//		phy-names = "usb2-phy";
-	};
-
-	dwc2@101c0000 {
-		compatible = "snps,dwc2";
-		reg = <0x101c0000 0x40000>;
-		interrupts = <GIC_SPI 17 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&cru HCLK_OTG1>;
-		clock-names = "otg";
-//		phys = <&usbphy1>;
-//		phy-names = "usb2-phy";
-	};
-
 	cru: clock-controller@20000000 {
 		compatible = "rockchip,rk3188-cru";
 		reg = <0x20000000 0x1000>;
