@@ -166,6 +166,8 @@
 		interrupts = <GIC_SPI 17 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&cru HCLK_OTG1>;
 		clock-names = "otg";
+		status = "disabled";
+	};
 
 	mmc0: dwmmc@10214000 {
 		compatible = "rockchip,rk2928-dw-mshc";
