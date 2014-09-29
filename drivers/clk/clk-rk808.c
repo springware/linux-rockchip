@@ -38,11 +38,6 @@ static unsigned long rk808_clkout_recalc_rate(struct clk_hw *hw,
 	return 32768;
 }
 
-static int rk808_clkout1_is_prepared(struct clk_hw *hw)
-{
-	return 1;
-}
-
 static int rk808_clkout2_enable(struct clk_hw *hw, bool enable)
 {
 	struct rk808_clkout *rk808_clkout = container_of(hw,
@@ -81,7 +76,6 @@ static int rk808_clkout2_is_prepared(struct clk_hw *hw)
 }
 
 static const struct clk_ops rk808_clkout1_ops = {
-	.is_prepared = rk808_clkout1_is_prepared,
 	.recalc_rate = rk808_clkout_recalc_rate,
 };
 
@@ -149,8 +143,20 @@ static int rk808_clkout_probe(struct platform_device *pdev)
 				   &rk808_clkout->clk_data);
 }
 
+static int rk808_clkout_remove(struct platform_device *pdev)
+{
+	struct rk808 *rk808 = dev_get_drvdata(pdev->dev.parent);
+	struct i2c_client *client = rk808->i2c;
+	struct device_node *node = client->dev.of_node;
+
+	of_clk_del_provider(node);
+
+	return 0;
+}
+
 static struct platform_driver rk808_clkout_driver = {
 	.probe = rk808_clkout_probe,
+	.remove = rk808_clkout_remove,
 	.driver		= {
 		.name	= "rk808-clkout",
 	},

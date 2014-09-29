@@ -4,7 +4,7 @@
  * Copyright (c) 2014, Fuzhou Rockchip Electronics Co., Ltd
  *
  * Author: Chris Zhong <zyw@rock-chips.com>
- * Author: Zhang Qing <zhanqging@rock-chips.com>
+ * Author: Zhang Qing <zhangqing@rock-chips.com>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -325,17 +325,6 @@ static int rk808_rtc_resume(struct device *dev)
 static SIMPLE_DEV_PM_OPS(rk808_rtc_pm_ops,
 	rk808_rtc_suspend, rk808_rtc_resume);
 
-/* 2014.1.1 12:00:00 Saturday */
-struct rtc_time tm_def = {
-			.tm_wday = 6,
-			.tm_year = 114,
-			.tm_mon = 0,
-			.tm_mday = 1,
-			.tm_hour = 12,
-			.tm_min = 0,
-			.tm_sec = 0,
-};
-
 static int rk808_rtc_probe(struct platform_device *pdev)
 {
 	struct rk808 *rk808 = dev_get_drvdata(pdev->dev.parent);
@@ -376,10 +365,8 @@ static int rk808_rtc_probe(struct platform_device *pdev)
 		return ret;
 	}
 	ret = rtc_valid_tm(&tm);
-	if (ret) {
-		dev_warn(&pdev->dev, "invalid date/time and init time\n");
-		rk808_rtc_set_time(&pdev->dev, &tm_def);
-	}
+	if (ret)
+		dev_warn(&pdev->dev, "invalid date/time\n");
 
 	device_init_wakeup(&pdev->dev, 1);
 
@@ -391,10 +378,11 @@ static int rk808_rtc_probe(struct platform_device *pdev)
 	}
 
 	rk808_rtc->irq = platform_get_irq(pdev, 0);
-	if (rk808_rtc->irq <= 0) {
-		dev_err(&pdev->dev, "Wake up is not possible as irq = %d\n",
-			rk808_rtc->irq);
-		return -ENXIO;
+	if (rk808_rtc->irq < 0) {
+		if (rk808_rtc->irq != -EPROBE_DEFER)
+			dev_err(&pdev->dev, "Wake up is not possible as irq = %d\n",
+				rk808_rtc->irq);
+		return rk808_rtc->irq;
 	}
 
 	/* request alarm irq of rk808 */
@@ -421,6 +409,6 @@ module_platform_driver(rk808_rtc_driver);
 
 MODULE_DESCRIPTION("RTC driver for the rk808 series PMICs");
 MODULE_AUTHOR("Chris Zhong <zyw@rock-chips.com>");
-MODULE_AUTHOR("Zhang Qing <zhanqging@rock-chips.com>");
+MODULE_AUTHOR("Zhang Qing <zhangqing@rock-chips.com>");
 MODULE_LICENSE("GPL");
 MODULE_ALIAS("platform:rk808-rtc");
