@@ -24,6 +24,36 @@
 #include <asm/hardware/cache-l2x0.h>
 #include "core.h"
 
+#include <linux/clocksource.h>
+#include <linux/clk-provider.h>
+
+static void __init rockchip_timer_init(void)
+{
+	of_clk_init(NULL);
+
+	if (of_machine_is_compatible("rockchip,rk3288")) {
+		void __iomem *reg_base;
+
+		/* enable timer7 for core */
+		pr_warn("rockchip: enabling rk3288-timer7 workaround\n");
+		reg_base = ioremap(0xFF810000, 0x4000);
+		if (reg_base) {
+			writel_relaxed(0, reg_base + 0x30);
+			dsb();
+			writel_relaxed(0xFFFFFFFF, reg_base + 0x20);
+			writel_relaxed(0xFFFFFFFF, reg_base + 0x24);
+			dsb();
+			writel_relaxed(1, reg_base + 0x30);
+			dsb();
+			iounmap(reg_base);
+		} else {
+			pr_err("rockchip: could not map timer7 registers\n");
+		}
+	}
+
+	clocksource_of_init();
+}
+
 static void __init rockchip_dt_init(void)
 {
 	of_platform_populate(NULL, of_default_bus_match_table, NULL, NULL);
@@ -42,6 +72,8 @@ static const char * const rockchip_board_dt_compat[] = {
 DT_MACHINE_START(ROCKCHIP_DT, "Rockchip Cortex-A9 (Device Tree)")
 	.l2c_aux_val	= 0,
 	.l2c_aux_mask	= ~0,
+	.init_time	= rockchip_timer_init,
+	.init_machine	= rockchip_dt_init,
 	.dt_compat	= rockchip_board_dt_compat,
 	.init_machine	= rockchip_dt_init,
 MACHINE_END
