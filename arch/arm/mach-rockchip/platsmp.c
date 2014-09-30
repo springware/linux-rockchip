@@ -19,7 +19,6 @@
 #include <linux/io.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
-//#include <linux/cpu.h>
 
 #include <asm/cacheflush.h>
 #include <asm/cp15.h>
@@ -69,7 +68,7 @@ static int __cpuinit rockchip_boot_secondary(unsigned int cpu,
 		return -ENXIO;
 	}
 
-	if (ncores > 0 && cpu >= ncores) {
+	if (cpu >= ncores) {
 		pr_err("%s: cpu %d outside maximum number of cpus %d\n",
 							__func__, cpu, ncores);
 		return -ENXIO;
@@ -89,8 +88,7 @@ static int __cpuinit rockchip_boot_secondary(unsigned int cpu,
  * core to the real startup code in ram into the sram-region.
  * @node: mmio-sram device node
  */
-static int __init rockchip_smp_prepare_sram(struct device_node *node,
-					    unsigned long boot_fn)
+static int __init rockchip_smp_prepare_sram(struct device_node *node)
 {
 	unsigned int trampoline_sz = &rockchip_secondary_trampoline_end -
 					    &rockchip_secondary_trampoline;
@@ -115,7 +113,7 @@ static int __init rockchip_smp_prepare_sram(struct device_node *node,
 	sram_base_addr = of_iomap(node, 0);
 
 	/* set the boot function for the sram code */
-	rockchip_boot_fn = boot_fn;
+	rockchip_boot_fn = virt_to_phys(rockchip_secondary_startup);
 
 	/* copy the trampoline to sram, that runs during startup of the core */
 	memcpy(sram_base_addr, &rockchip_secondary_trampoline, trampoline_sz);
@@ -127,7 +125,7 @@ static int __init rockchip_smp_prepare_sram(struct device_node *node,
 	return 0;
 }
 
-static void __init rk3066_smp_prepare_cpus(unsigned int max_cpus)
+static void __init rockchip_smp_prepare_cpus(unsigned int max_cpus)
 {
 	struct device_node *node;
 	unsigned int i;
@@ -150,8 +148,7 @@ static void __init rk3066_smp_prepare_cpus(unsigned int max_cpus)
 		return;
 	}
 
-	if (rockchip_smp_prepare_sram(node,
-				virt_to_phys(rockchip_secondary_startup)))
+	if (rockchip_smp_prepare_sram(node))
 		return;
 
 	node = of_find_compatible_node(NULL, NULL, "rockchip,rk3066-pmu");
@@ -182,48 +179,6 @@ static void __init rk3066_smp_prepare_cpus(unsigned int max_cpus)
 		pmu_set_power_domain(0 + i, false);
 }
 
-static void __init rk3288_smp_prepare_cpus(unsigned int max_cpus)
-{
-	struct device_node *node;
-	unsigned int i;
-
-	/* Enable remap, so the cores boot from sram.
-	 * FIXME: this should use the early_syscon to use regmap.
-	 */
-	void __iomem *tmp = ioremap(0xff740000, 0x1000);
-	writel((1 << 11) | (1 << (11+16)), tmp);
-
-//	node = of_get_cpu_node(0, NULL);
-
-	node = of_find_compatible_node(NULL, NULL, "rockchip,rk3066-smp-sram");
-	if (!node) {
-		pr_err("%s: could not find sram dt node\n", __func__);
-		return;
-	}
-
-	if (rockchip_smp_prepare_sram(node,
-				virt_to_phys(secondary_startup)))
-		return;
-
-	node = of_find_compatible_node(NULL, NULL, "rockchip,rk3066-pmu");
-	if (!node) {
-		pr_err("%s: could not find pmu dt node\n", __func__);
-		return;
-	}
-
-	pmu_base_addr = of_iomap(node, 0);
-	if (!pmu_base_addr) {
-		pr_err("%s: could not map pmu registers\n", __func__);
-		return;
-	}
-
-	ncores = 4;
-
-	/* Make sure that all cores except the first are really off */
-	for (i = 1; i < ncores; i++)
-		pmu_set_power_domain(0 + i, false);
-}
-
 #ifdef CONFIG_HOTPLUG_CPU
 static int rockchip_cpu_kill(unsigned int cpu)
 {
@@ -239,19 +194,12 @@ static void rockchip_cpu_die(unsigned int cpu)
 }
 #endif
 
-static struct smp_operations rockchip3066_smp_ops __initdata = {
-	.smp_prepare_cpus	= rk3066_smp_prepare_cpus,
+static struct smp_operations rockchip_smp_ops __initdata = {
+	.smp_prepare_cpus	= rockchip_smp_prepare_cpus,
 	.smp_boot_secondary	= rockchip_boot_secondary,
 #ifdef CONFIG_HOTPLUG_CPU
 	.cpu_kill		= rockchip_cpu_kill,
 	.cpu_die		= rockchip_cpu_die,
 #endif
 };
-CPU_METHOD_OF_DECLARE(rk3066_smp, "rockchip,rk3066-smp", &rockchip3066_smp_ops);
-
-static struct smp_operations rockchip3288_smp_ops __initdata = {
-	.smp_prepare_cpus	= rk3288_smp_prepare_cpus,
-	.smp_boot_secondary	= rockchip_boot_secondary,
-};
-CPU_METHOD_OF_DECLARE(rk3288_smp, "rockchip,rk3288-smp", &rockchip3288_smp_ops);
-
+CPU_METHOD_OF_DECLARE(rk3066_smp, "rockchip,rk3066-smp", &rockchip_smp_ops);
