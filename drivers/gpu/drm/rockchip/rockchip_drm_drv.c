@@ -43,7 +43,7 @@
 int rockchip_drm_dma_attach_device(struct drm_device *drm_dev,
 				   struct device *dev)
 {
-	struct dma_iommu_mapping *mapping = drm_dev->dev->archdata.mapping;
+	struct dma_iommu_mapping *mapping;// = drm_dev->dev->archdata.mapping;
 	int ret;
 
 	ret = dma_set_coherent_mask(dev, DMA_BIT_MASK(32));
@@ -141,7 +141,7 @@ err_kms_helper_poll_fini:
 err_detach_device:
 	arm_iommu_detach_device(dev);
 err_release_mapping:
-	arm_iommu_release_mapping(dev->archdata.mapping);
+//	arm_iommu_release_mapping(dev->archdata.mapping);
 err_config_cleanup:
 	drm_mode_config_cleanup(drm_dev);
 	drm_dev->dev_private = NULL;
@@ -155,7 +155,7 @@ static int rockchip_drm_unload(struct drm_device *drm_dev)
 	drm_kms_helper_poll_fini(drm_dev);
 	component_unbind_all(dev, drm_dev);
 	arm_iommu_detach_device(dev);
-	arm_iommu_release_mapping(dev->archdata.mapping);
+//	arm_iommu_release_mapping(dev->archdata.mapping);
 	drm_mode_config_cleanup(drm_dev);
 	drm_dev->dev_private = NULL;
 
