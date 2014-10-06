@@ -48,7 +48,7 @@ static struct syscon *of_syscon_register(struct device_node *np)
 	struct regmap *regmap;
 	void __iomem *base;
 	int ret;
-	enum regmap_endian endian = REGMAP_ENDIAN_DEFAULT;
+	struct regmap_config syscon_config = syscon_regmap_config;
 
 	if (!of_device_is_compatible(np, "syscon"))
 		return ERR_PTR(-EINVAL);
@@ -65,15 +65,11 @@ static struct syscon *of_syscon_register(struct device_node *np)
 
 	/* Parse the device's DT node for an endianness specification */
 	if (of_property_read_bool(np, "big-endian"))
-		endian = REGMAP_ENDIAN_BIG;
+		syscon_config.val_format_endian = REGMAP_ENDIAN_BIG;
 	 else if (of_property_read_bool(np, "little-endian"))
-		endian = REGMAP_ENDIAN_LITTLE;
+		syscon_config.val_format_endian = REGMAP_ENDIAN_LITTLE;
 
-	/* If the endianness was specified in DT, use that */
-	if (endian != REGMAP_ENDIAN_DEFAULT)
-		syscon_regmap_config.val_format_endian = endian;
-
-	regmap = regmap_init_mmio(NULL, base, &syscon_regmap_config);
+	regmap = regmap_init_mmio(NULL, base, &syscon_config);
 	if (IS_ERR(regmap)) {
 		pr_err("regmap init failed\n");
 		ret = PTR_ERR(regmap);
@@ -86,12 +82,6 @@ static struct syscon *of_syscon_register(struct device_node *np)
 	spin_lock(&syscon_list_slock);
 	list_add_tail(&syscon->list, &syscon_list);
 	spin_unlock(&syscon_list_slock);
-
-	/* Change back endianness of syscon_regmap_config.
-	 * As this is static config in this file and in one system we may
-	 * have more than one syscon
-	 */
-	syscon_regmap_config.val_format_endian = REGMAP_ENDIAN_DEFAULT;
 
 	return syscon;
 
