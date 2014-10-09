@@ -139,6 +139,7 @@ bool stmmac_eee_init(struct stmmac_priv *priv);
 #ifdef CONFIG_STMMAC_PLATFORM
 #ifdef CONFIG_DWMAC_MESON
 extern const struct stmmac_of_data meson6_dwmac_data;
+#endif
 #ifdef CONFIG_DWMAC_ROCKCHIP
 extern const struct stmmac_of_data rk3288_gmac_data;
 #endif
