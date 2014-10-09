@@ -130,9 +130,6 @@ static int rockchip_drm_load(struct drm_device *drm_dev, unsigned long flags)
 
 	rockchip_drm_fbdev_init(drm_dev);
 
-	/* force connectors detection */
-	drm_helper_hpd_irq_event(drm_dev);
-
 	return 0;
 
 err_kms_helper_poll_fini:
@@ -216,12 +213,16 @@ static struct drm_driver rockchip_drm_driver = {
 };
 
 #ifdef CONFIG_PM_SLEEP
-static int rockchip_drm_suspend(struct drm_device *dev, pm_message_t state)
+static int rockchip_drm_sys_suspend(struct device *dev)
 {
+	struct drm_device *drm = dev_get_drvdata(dev);
 	struct drm_connector *connector;
 
-	drm_modeset_lock_all(dev);
-	list_for_each_entry(connector, &dev->mode_config.connector_list, head) {
+	if (pm_runtime_suspended(dev) || !drm)
+		return 0;
+
+	drm_modeset_lock_all(drm);
+	list_for_each_entry(connector, &drm->mode_config.connector_list, head) {
 		int old_dpms = connector->dpms;
 
 		if (connector->funcs->dpms)
@@ -230,48 +231,29 @@ static int rockchip_drm_suspend(struct drm_device *dev, pm_message_t state)
 		/* Set the old mode back to the connector for resume */
 		connector->dpms = old_dpms;
 	}
-	drm_modeset_unlock_all(dev);
+	drm_modeset_unlock_all(drm);
 
 	return 0;
-}
-
-static int rockchip_drm_resume(struct drm_device *dev)
-{
-	struct drm_connector *connector;
-
-	drm_modeset_lock_all(dev);
-	list_for_each_entry(connector, &dev->mode_config.connector_list, head) {
-		if (connector->funcs->dpms)
-			connector->funcs->dpms(connector, connector->dpms);
-	}
-	drm_modeset_unlock_all(dev);
-
-	drm_helper_resume_force_mode(dev);
-
-	return 0;
-}
-
-static int rockchip_drm_sys_suspend(struct device *dev)
-{
-	struct drm_device *drm_dev = dev_get_drvdata(dev);
-	pm_message_t message;
-
-	if (pm_runtime_suspended(dev))
-		return 0;
-
-	message.event = PM_EVENT_SUSPEND;
-
-	return rockchip_drm_suspend(drm_dev, message);
 }
 
 static int rockchip_drm_sys_resume(struct device *dev)
 {
-	struct drm_device *drm_dev = dev_get_drvdata(dev);
+	struct drm_device *drm = dev_get_drvdata(dev);
+	struct drm_connector *connector;
 
-	if (!pm_runtime_suspended(dev))
+	if (!pm_runtime_suspended(dev) || !drm)
 		return 0;
 
-	return rockchip_drm_resume(drm_dev);
+	drm_modeset_lock_all(drm);
+	list_for_each_entry(connector, &drm->mode_config.connector_list, head) {
+		if (connector->funcs->dpms)
+			connector->funcs->dpms(connector, connector->dpms);
+	}
+	drm_modeset_unlock_all(drm);
+
+	drm_helper_resume_force_mode(drm);
+
+	return 0;
 }
 #endif
 
@@ -279,49 +261,6 @@ static const struct dev_pm_ops rockchip_drm_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(rockchip_drm_sys_suspend,
 				rockchip_drm_sys_resume)
 };
-
-int rockchip_drm_add_crtc(struct drm_device *drm, struct drm_crtc *crtc,
-			  struct device_node *np)
-{
-	struct rockchip_drm_private *priv = drm->dev_private;
-	struct device_node *port;
-	int pipe;
-
-	if (priv->num_pipe >= ROCKCHIP_MAX_CRTC)
-		return -EINVAL;
-
-	port = of_get_child_by_name(np, "port");
-	if (!port) {
-		dev_err(drm->dev, "no port node found in %s\n",
-			np->full_name);
-		return -ENXIO;
-	}
-	pipe = priv->num_pipe++;
-	crtc->port = port;
-
-	priv->crtc[pipe] = crtc;
-
-	return pipe;
-}
-
-void rockchip_drm_remove_crtc(struct drm_device *drm, int pipe)
-{
-	struct rockchip_drm_private *priv = drm->dev_private;
-
-	priv->num_pipe--;
-	of_node_put(priv->crtc[pipe]->port);
-	priv->crtc[pipe] = NULL;
-}
-
-struct drm_crtc *rockchip_drm_find_crtc(struct drm_device *drm, int pipe)
-{
-	struct rockchip_drm_private *priv = drm->dev_private;
-
-	if (pipe < ROCKCHIP_MAX_CRTC && priv->crtc[pipe])
-		return priv->crtc[pipe];
-
-	return NULL;
-}
 
 /*
  * @node: device tree node containing encoder input ports
@@ -417,6 +356,7 @@ static void rockchip_drm_unbind(struct device *dev)
 
 	drm_dev_unregister(drm);
 	drm_dev_unref(drm);
+	dev_set_drvdata(dev, NULL);
 }
 
 static const struct component_master_ops rockchip_drm_ops = {

@@ -16,7 +16,6 @@
 #include <drm/drmP.h>
 #include <drm/drm_vma_manager.h>
 
-#include <linux/anon_inodes.h>
 #include <linux/dma-attrs.h>
 
 #include "rockchip_drm_drv.h"

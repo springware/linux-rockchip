@@ -12,6 +12,6 @@ config DRM_ROCKCHIP
 	help
 	  Choose this option if you have a Rockchip soc chipset.
 	  This driver provides kernel mode setting and buffer
-	  management to userspace. This driver does not provides
+	  management to userspace. This driver does not provide
 	  2D or 3D acceleration; acceleration is performed by other
 	  IP found on the SoC.

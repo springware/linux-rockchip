@@ -502,7 +502,6 @@ err_disable_dclk:
 	clk_disable(ctx->dclk);
 err_disable_hclk:
 	clk_disable(ctx->hclk);
-	return;
 }
 
 static void rockchip_power_off(struct drm_crtc *crtc)
@@ -510,7 +509,6 @@ static void rockchip_power_off(struct drm_crtc *crtc)
 	struct vop_context *ctx = to_vop_ctx(crtc);
 
 	drm_vblank_off(crtc->dev, ctx->pipe);
-
 
 	spin_lock(&ctx->reg_lock);
 
@@ -778,6 +776,20 @@ int rockchip_drm_crtc_mode_config(struct drm_crtc *crtc,
 	return 0;
 }
 
+static struct drm_crtc *rockchip_drm_find_crtc(struct drm_device *drm, int pipe)
+{
+	struct drm_crtc *c, *crtc = NULL;
+	int i;
+
+	list_for_each_entry(c, &drm->mode_config.crtc_list, head)
+		if (i++ == pipe) {
+			crtc = c;
+			break;
+		}
+
+	return crtc;
+}
+
 int rockchip_drm_crtc_enable_vblank(struct drm_device *dev, int pipe)
 {
 	struct vop_context *ctx = to_vop_ctx(rockchip_drm_find_crtc(dev, pipe));
@@ -788,8 +800,7 @@ int rockchip_drm_crtc_enable_vblank(struct drm_device *dev, int pipe)
 
 	spin_lock_irqsave(&ctx->irq_lock, flags);
 
-	vop_mask_write(ctx, INTR_CTRL0, FS_INTR_MASK,
-		       FS_INTR_EN(1));
+	vop_mask_write(ctx, INTR_CTRL0, FS_INTR_MASK, FS_INTR_EN(1));
 
 	spin_unlock_irqrestore(&ctx->irq_lock, flags);
 
@@ -804,8 +815,7 @@ void rockchip_drm_crtc_disable_vblank(struct drm_device *dev, int pipe)
 	if (ctx->dpms != DRM_MODE_DPMS_ON)
 		return;
 	spin_lock_irqsave(&ctx->irq_lock, flags);
-	vop_mask_write(ctx, INTR_CTRL0, FS_INTR_MASK,
-		       FS_INTR_EN(0));
+	vop_mask_write(ctx, INTR_CTRL0, FS_INTR_MASK, FS_INTR_EN(0));
 	spin_unlock_irqrestore(&ctx->irq_lock, flags);
 }
 
@@ -853,7 +863,21 @@ static bool rockchip_drm_crtc_mode_fixup(struct drm_crtc *crtc,
 }
 
 static int rockchip_drm_crtc_mode_set_base(struct drm_crtc *crtc, int x, int y,
-					   struct drm_framebuffer *old_fb);
+					   struct drm_framebuffer *old_fb)
+{
+	int ret;
+
+	crtc->x = x;
+	crtc->y = y;
+
+	ret = rockchip_update_primary_plane(crtc);
+	if (ret < 0) {
+		DRM_ERROR("fail to update plane\n");
+		return ret;
+	}
+
+	return 0;
+}
 
 static int rockchip_drm_crtc_mode_set(struct drm_crtc *crtc,
 				      struct drm_display_mode *mode,
@@ -936,26 +960,8 @@ static int rockchip_drm_crtc_mode_set(struct drm_crtc *crtc,
 	return 0;
 }
 
-static int rockchip_drm_crtc_mode_set_base(struct drm_crtc *crtc, int x, int y,
-					   struct drm_framebuffer *old_fb)
-{
-	int ret;
-
-	crtc->x = x;
-	crtc->y = y;
-
-	ret = rockchip_update_primary_plane(crtc);
-	if (ret < 0) {
-		DRM_ERROR("fail to update plane\n");
-		return ret;
-	}
-
-	return 0;
-}
-
 static void rockchip_drm_crtc_commit(struct drm_crtc *crtc)
 {
-	/* just do dummy now */
 }
 
 static const struct drm_crtc_helper_funcs rockchip_crtc_helper_funcs = {
@@ -975,6 +981,7 @@ static int rockchip_drm_crtc_page_flip(struct drm_crtc *crtc,
 	struct drm_device *dev = crtc->dev;
 	struct vop_context *ctx = to_vop_ctx(crtc);
 	struct drm_framebuffer *old_fb = crtc->primary->fb;
+	int pipe = ctx->pipe;
 	int ret;
 
 	/* when the page flip is requested, crtc's dpms should be on */
@@ -983,7 +990,7 @@ static int rockchip_drm_crtc_page_flip(struct drm_crtc *crtc,
 		return 0;
 	}
 
-	ret = drm_vblank_get(dev, ctx->pipe);
+	ret = drm_vblank_get(dev, pipe);
 	if (ret) {
 		DRM_DEBUG("failed to acquire vblank counter\n");
 		return ret;
@@ -1006,7 +1013,7 @@ static int rockchip_drm_crtc_page_flip(struct drm_crtc *crtc,
 		crtc->primary->fb = old_fb;
 
 		spin_lock_irq(&dev->event_lock);
-		drm_vblank_put(dev, ctx->pipe);
+		drm_vblank_put(dev, pipe);
 		atomic_set(&ctx->wait_vsync_event, 0);
 		ctx->event = NULL;
 		spin_unlock_irq(&dev->event_lock);
@@ -1015,34 +1022,27 @@ static int rockchip_drm_crtc_page_flip(struct drm_crtc *crtc,
 	return ret;
 }
 
-static void rockchip_drm_crtc_finish_pageflip(struct drm_device *dev, int pipe)
+static void rockchip_drm_crtc_finish_pageflip(struct drm_crtc *crtc)
 {
-	struct rockchip_drm_private *dev_priv = dev->dev_private;
-	struct drm_crtc *drm_crtc = dev_priv->crtc[pipe];
-	struct vop_context *ctx;
+	struct vop_context *ctx = to_vop_ctx(crtc);
+	struct drm_device *drm = ctx->drm_dev;
 	unsigned long flags;
 
-	ctx = to_vop_ctx(drm_crtc);
-
-	spin_lock_irqsave(&dev->event_lock, flags);
+	spin_lock_irqsave(&drm->event_lock, flags);
 
 	if (ctx->event) {
-		drm_send_vblank_event(dev, -1, ctx->event);
-		drm_vblank_put(dev, pipe);
+		drm_send_vblank_event(drm, -1, ctx->event);
+		drm_vblank_put(drm, ctx->pipe);
 		atomic_set(&ctx->wait_vsync_event, 0);
 		wake_up(&ctx->wait_vsync_queue);
 		ctx->event = NULL;
 	}
 
-	spin_unlock_irqrestore(&dev->event_lock, flags);
+	spin_unlock_irqrestore(&drm->event_lock, flags);
 }
 
 static void rockchip_drm_crtc_destroy(struct drm_crtc *crtc)
 {
-	struct vop_context *ctx = to_vop_ctx(crtc);
-	struct rockchip_drm_private *private = crtc->dev->dev_private;
-
-	private->crtc[ctx->pipe] = NULL;
 	drm_crtc_cleanup(crtc);
 }
 
@@ -1057,8 +1057,7 @@ static void rockchip_vsync_worker(struct work_struct *work)
 	struct vop_context *ctx = container_of(work, struct vop_context,
 					       vsync_work);
 	struct drm_device *drm = ctx->drm_dev;
-	struct rockchip_drm_private *dev_priv = drm->dev_private;
-	struct drm_crtc *crtc = dev_priv->crtc[ctx->pipe];
+	struct drm_crtc *crtc = &ctx->crtc;
 	struct rockchip_plane *rockchip_plane;
 	struct drm_plane *plane;
 	uint32_t yrgb_mst;
@@ -1070,7 +1069,7 @@ static void rockchip_vsync_worker(struct work_struct *work)
 	list_for_each_entry(plane, &drm->mode_config.plane_list, head) {
 		rockchip_plane = to_rockchip_plane(plane);
 
-		if (to_vop_ctx(plane->crtc) != ctx)
+		if (plane->crtc != crtc)
 			continue;
 		if (rockchip_plane->enabled && !rockchip_plane->pending_fb)
 			continue;
@@ -1105,8 +1104,7 @@ static void rockchip_vsync_worker(struct work_struct *work)
 		 * userspace
 		 */
 		if (&rockchip_plane->base == crtc->primary)
-			rockchip_drm_crtc_finish_pageflip(ctx->drm_dev,
-							  ctx->pipe);
+			rockchip_drm_crtc_finish_pageflip(crtc);
 	}
 
 	mutex_unlock(&ctx->vsync_mutex);
@@ -1138,56 +1136,63 @@ static int vop_create_crtc(struct vop_context *ctx)
 {
 	struct device *dev = ctx->dev;
 	struct drm_device *drm_dev = ctx->drm_dev;
-	struct drm_plane *primary, *cursor;
-	unsigned long possible_crtcs;
-	struct drm_crtc *crtc;
+	struct drm_plane *primary, *cursor, *plane;
+	enum drm_plane_type plane_type;
+	struct drm_crtc *crtc = &ctx->crtc;
+	struct device_node *port;
 	int ret;
 	int nr;
 
-	crtc = &ctx->crtc;
-
-	ret = rockchip_drm_add_crtc(drm_dev, crtc, dev->of_node);
-	if (ret < 0)
-		return ret;
-	ctx->pipe = ret;
-
-	possible_crtcs = (1 << ctx->pipe);
-
 	for (nr = 0; nr < VOP_MAX_WIN_SUPPORT; nr++) {
-		if (nr == VOP_DEFAULT_PRIMARY) {
-			primary = rockchip_plane_init(ctx, possible_crtcs,
-						      DRM_PLANE_TYPE_PRIMARY,
-						      VOP_DEFAULT_PRIMARY);
-			if (IS_ERR(primary)) {
-				DRM_ERROR("fail to init primary plane\n");
-				return PTR_ERR(primary);
-			}
-		} else if (nr == VOP_DEFAULT_CURSOR) {
-			cursor = rockchip_plane_init(ctx, possible_crtcs,
-						     DRM_PLANE_TYPE_CURSOR,
-						     VOP_DEFAULT_CURSOR);
-			if (IS_ERR(cursor)) {
-				DRM_ERROR("fail to init cursor plane\n");
-				return PTR_ERR(cursor);
-			}
-		} else {
-			struct drm_plane *plane;
+		if (nr == VOP_DEFAULT_PRIMARY)
+			plane_type = DRM_PLANE_TYPE_PRIMARY;
+		else if (nr == VOP_DEFAULT_CURSOR)
+			plane_type = DRM_PLANE_TYPE_CURSOR;
+		else
+			plane_type = DRM_PLANE_TYPE_OVERLAY;
 
-			plane = rockchip_plane_init(ctx, possible_crtcs,
-						    DRM_PLANE_TYPE_OVERLAY,
-						    nr);
-			if (IS_ERR(plane)) {
-				DRM_ERROR("fail to init overlay plane\n");
-				return PTR_ERR(plane);
-			}
+		plane = rockchip_plane_init(ctx, 0xff, plane_type, nr);
+		if (IS_ERR(plane)) {
+			ret = PTR_ERR(plane);
+			DRM_ERROR("fail to init overlay plane - %d\n", ret);
+			goto err_destroy_plane;
 		}
+
+		if (plane_type == DRM_PLANE_TYPE_PRIMARY)
+			primary = plane;
+		else if (plane_type == DRM_PLANE_TYPE_CURSOR)
+			cursor = plane;
 	}
 
-	drm_crtc_init_with_planes(drm_dev, crtc, primary, cursor,
-				  &rockchip_crtc_funcs);
+	ret = drm_crtc_init_with_planes(drm_dev, crtc, primary, cursor,
+					&rockchip_crtc_funcs);
+	if (ret)
+		goto err_destroy_plane;
+
 	drm_crtc_helper_add(crtc, &rockchip_crtc_helper_funcs);
 
+	port = of_get_child_by_name(dev->of_node, "port");
+	if (!port) {
+		DRM_ERROR("no port node found in %s\n",
+			  dev->of_node->full_name);
+		goto err_cleanup_crtc;
+	}
+
+	drm_modeset_lock_all(drm_dev);
+	crtc->port = port;
+	ctx->pipe = drm_crtc_index(crtc);
+	drm_modeset_unlock_all(drm_dev);
+
 	return 0;
+
+err_cleanup_crtc:
+	drm_crtc_cleanup(crtc);
+err_destroy_plane:
+	mutex_lock(&drm_dev->mode_config.mutex);
+	list_for_each_entry(plane, &drm_dev->mode_config.plane_list, head)
+		plane->funcs->destroy(plane);
+	mutex_unlock(&drm_dev->mode_config.mutex);
+	return ret;
 }
 
 static int rockchip_vop_initial(struct vop_context *ctx)
@@ -1370,13 +1375,12 @@ static int vop_bind(struct device *dev, struct device *master, void *data)
 static void vop_unbind(struct device *dev, struct device *master,
 		       void *data)
 {
-	struct drm_device *drm_dev = data;
 	struct vop_context *ctx = dev_get_drvdata(dev);
 	struct drm_crtc *crtc = &ctx->crtc;
 
+	of_node_put(crtc->port);
 	drm_crtc_cleanup(crtc);
 	pm_runtime_disable(dev);
-	rockchip_drm_remove_crtc(drm_dev, ctx->pipe);
 }
 
 static const struct component_ops vop_component_ops = {

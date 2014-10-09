@@ -38,19 +38,8 @@ struct drm_connector;
 struct rockchip_drm_private {
 	struct drm_fb_helper fbdev_helper;
 	struct drm_gem_object *fbdev_bo;
-	/*
-	 * created crtc object would be contained at this array and
-	 * this array is used to be aware of which crtc did it request vblank.
-	 */
-	struct drm_crtc *crtc[ROCKCHIP_MAX_CRTC];
-
-	unsigned int num_pipe;
 };
 
-int rockchip_drm_add_crtc(struct drm_device *drm, struct drm_crtc *crtc,
-			  struct device_node *port);
-void rockchip_drm_remove_crtc(struct drm_device *drm, int pipe);
-struct drm_crtc *rockchip_drm_find_crtc(struct drm_device *drm, int pipe);
 int rockchip_drm_encoder_get_mux_id(struct device_node *node,
 				    struct drm_encoder *encoder);
 int rockchip_drm_crtc_mode_config(struct drm_crtc *crtc, int connector_type,
