@@ -342,8 +342,8 @@ static const struct vop_win_phy rk3188_win0_data = {
 	.yrgb_mst = VOP_REG(RK3188_WIN0_YRGB_MST0, 0xffffffff, 0),
 	.uv_mst = VOP_REG(RK3188_WIN0_CBR_MST0, 0xffffffff, 0),
 	.yrgb_vir = VOP_REG(RK3188_WIN_VIR, 0xfff, 0),
-/*	.src_alpha_ctl = VOP_REG(RK3288_WIN0_SRC_ALPHA_CTRL, 0xff, 0),
-	.dst_alpha_ctl = VOP_REG(RK3288_WIN0_DST_ALPHA_CTRL, 0xff, 0),*/
+	.src_alpha_ctl = VOP_REG(RK3188_DSP_CTRL0, 0x1, 18),
+	.dst_alpha_ctl = VOP_REG(RK3188_ALPHA_CTRL, 0x1, 0),
 };
 
 static const struct vop_win_phy rk3188_win1_data = {
@@ -355,8 +355,8 @@ static const struct vop_win_phy rk3188_win1_data = {
 	.dsp_st = VOP_REG(RK3188_WIN1_DSP_ST, 0x0fff0fff, 0),
 	.yrgb_mst = VOP_REG(RK3188_WIN1_MST, 0xffffffff, 0),
 	.yrgb_vir = VOP_REG(RK3188_WIN_VIR, 0xfff, 16),
-/*	.src_alpha_ctl = VOP_REG(RK3288_WIN2_SRC_ALPHA_CTRL, 0xff, 0),
-	.dst_alpha_ctl = VOP_REG(RK3288_WIN2_DST_ALPHA_CTRL, 0xff, 0),*/
+	.src_alpha_ctl = VOP_REG(RK3188_DSP_CTRL0, 0x1, 19),
+	.dst_alpha_ctl = VOP_REG(RK3188_ALPHA_CTRL, 0x1, 1),
 };
 
 /* FIXME: hw cursor only supports 2bpp on rk3188, so probably useless */
@@ -395,6 +395,7 @@ static const struct vop_ctrl rk3188_ctrl_data = {
 	.vact_st_end = VOP_REG(RK3188_DSP_VACT_ST_END, 0x0fff0fff, 0),
 };
 
+/* TODO: set DSP_CTRL0[29] to 1 */
 static const struct vop_reg_data rk3188_vop_init_reg_table[] = {
 /*	{RK3288_SYS_CTRL, 0x00c00000},
 	{RK3288_DSP_CTRL0, 0x00000000},
@@ -741,7 +742,45 @@ static void rockchip_power_off(struct drm_crtc *crtc)
 static void rk3188_set_alpha(struct vop_context *ctx,
 			     const struct vop_win *win, bool is_alpha)
 {
-  
+	uint32_t val;
+
+	if (is_alpha) {
+
+	} else {
+
+
+	}
+
+/*
+	int win0_alpha_en = ((win0_format == ARGB888)
+			     || (win0_format == ABGR888)) ? 1 : 0;
+	int win1_alpha_en = ((win1_format == ARGB888)
+			     || (win1_format == ABGR888)) ? 1 : 0;
+	u32 *_pv = (u32 *) lcdc_dev->regsbak;
+	_pv += (DSP_CTRL0 >> 2);
+	win0_top = ((*_pv) & (m_WIN0_TOP)) >> 8;
+	if (win0_top && (lcdc_dev->atv_layer_cnt >= 2) && (win0_alpha_en)) {
+		lcdc_msk_reg(lcdc_dev, ALPHA_CTRL, m_WIN0_ALPHA_EN |
+			     m_WIN1_ALPHA_EN, v_WIN0_ALPHA_EN(1) |
+			     v_WIN1_ALPHA_EN(0));
+		mask = m_WIN0_ALPHA_MODE | m_ALPHA_MODE_SEL0 | m_ALPHA_MODE_SEL1;
+		val = v_WIN0_ALPHA_MODE(1) | v_ALPHA_MODE_SEL0(1) | v_ALPHA_MODE_SEL1(0);
+		lcdc_msk_reg(lcdc_dev, DSP_CTRL0, mask, val);
+	} else if ((!win0_top) && (lcdc_dev->atv_layer_cnt >= 2)
+		   && (win1_alpha_en)) {
+		mask =  m_WIN0_ALPHA_EN | m_WIN1_ALPHA_EN;
+		val = v_WIN0_ALPHA_EN(0) | v_WIN1_ALPHA_EN(1);
+		lcdc_msk_reg(lcdc_dev, ALPHA_CTRL, mask, val);
+
+		mask = m_WIN1_ALPHA_MODE | m_ALPHA_MODE_SEL0 | m_ALPHA_MODE_SEL1;
+		val = v_WIN1_ALPHA_MODE(1) | v_ALPHA_MODE_SEL0(1) | v_ALPHA_MODE_SEL1(0);
+		lcdc_msk_reg(lcdc_dev, DSP_CTRL0, mask, val);
+	} else {
+		mask = m_WIN0_ALPHA_EN | m_WIN1_ALPHA_EN;
+		val = v_WIN0_ALPHA_EN(0) | v_WIN1_ALPHA_EN(0);
+		lcdc_msk_reg(lcdc_dev, ALPHA_CTRL, mask, val);
+	}
+*/
 }
 
 static void rk3288_set_alpha(struct vop_context *ctx,
