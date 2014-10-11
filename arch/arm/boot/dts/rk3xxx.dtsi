@@ -134,22 +134,6 @@
 		status = "disabled";
 	};
 
-	emac: ethernet@10204000 {
-		compatible = "snps,arc-emac";
-		reg = <0x10204000 0x3c>;
-		interrupts = <GIC_SPI 19 IRQ_TYPE_LEVEL_HIGH>;
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		rockchip,grf = <&grf>;
-
-		clocks = <&cru HCLK_EMAC>, <&cru SCLK_MAC>;
-		clock-names = "hclk", "macref";
-		max-speed = <100>;
-		phy-mode = "rmii";
-		status = "disabled";
-	};
-
 	usb_otg: usb@10180000 {
 		compatible = "rockchip,rk3066-usb", "snps,dwc2";
 		reg = <0x10180000 0x40000>;
