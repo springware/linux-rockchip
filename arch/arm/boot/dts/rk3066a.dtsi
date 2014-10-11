@@ -219,6 +219,7 @@
 				rockchip,pins = <RK_GPIO1 24 RK_FUNC_2 &pcfg_pull_default>,
 						<RK_GPIO1 25 RK_FUNC_2 &pcfg_pull_default>;
 			};
+		};
 
 		emmc {
 			emmc_clk: emmc-clk {
