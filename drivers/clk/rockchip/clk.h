@@ -377,8 +377,6 @@ void rockchip_clk_register_branches(struct rockchip_clk_branch *clk_list,
 				    unsigned int nr_clk);
 void rockchip_clk_register_plls(struct rockchip_pll_clock *pll_list,
 				unsigned int nr_pll, int grf_lock_offset);
-void rockchip_clk_protect_critical(const char *clocks[], int nclocks);
-void rockchip_register_restart_notifier(unsigned int reg);
 void rockchip_clk_register_armclk(unsigned int lookup_id, const char *name,
 			const char **parent_names, u8 num_parents,
 			const struct rockchip_cpuclk_reg_data *reg_data,
