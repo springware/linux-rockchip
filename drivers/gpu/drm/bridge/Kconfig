@@ -3,3 +3,11 @@ config DRM_PTN3460
 	depends on DRM
 	select DRM_KMS_HELPER
 	---help---
+
+config DW_HDMI
+	tristate "Synopsys DesignWare HDMI"
+	depends on DRM
+	select DRM_KKMS_HELPER
+	help
+          This selects support for the Synopsys DesignWare HDMI IP
+          block.
