@@ -1,0 +1,44 @@
+Rockchip specific extensions to the Synopsys Designware HDMI
+================================
+
+Required properties:
+- compatible: "rockchip,rk3288-dw-hdmi";
+
+- reg: physical base address of the controller and length
+- reg-io-width: the width of the reg:1,2,4
+- ddc-i2c-bus: the ddc i2c bus
+- clocks: from common clock binding: handle to hdmi clock.
+	of memory mapped region.
+- clock-names: from common clock binding:
+	Required elements: "iahp" "isfr"
+- gpr: this soc should set GRF regs, so need get grf here.
+
+- ports: contain a port node with endpoint definitions as defined in
+  Documentation/devicetree/bindings/media/video-interfaces.txt.
+
+Example:
+hdmi: hdmi@ff980000 {
+                compatible = "rockchip,rk3288-dw-hdmi";
+                reg = <0xff980000 0x20000>;
+                reg-io-width = <4>;
+		ddc-i2c-bus = <&i2c5>;
+                gpr = <&grf>;
+                interrupts = <GIC_SPI 103 IRQ_TYPE_LEVEL_HIGH>;
+                clocks = <&cru  PCLK_HDMI_CTRL>, <&cru SCLK_HDMI_HDCP>;
+                clock-names = "iahb", "isfr";
+                status = "disabled";
+                ports {
+                        hdmi_in: port {
+                                #address-cells = <1>;
+                                #size-cells = <0>;
+                                hdmi_in_vopb: endpoint@0 {
+                                        reg = <0>;
+                                        remote-endpoint = <&vopb_out_hdmi>;
+                                };
+                                hdmi_in_vopl: endpoint@1 {
+                                        reg = <1>;
+                                        remote-endpoint = <&vopl_out_hdmi>;
+                                };
+                        };
+                };
+        };
