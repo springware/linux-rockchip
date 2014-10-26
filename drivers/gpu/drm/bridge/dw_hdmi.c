@@ -618,11 +618,15 @@ static inline void hdmi_phy_test_dout(struct dw_hdmi *hdmi,
 
 static bool hdmi_phy_wait_i2c_done(struct dw_hdmi *hdmi, int msec)
 {
-	while ((hdmi->read(hdmi, HDMI_IH_I2CMPHY_STAT0) & 0x3) == 0) {
+	u32 val;
+
+	while (((val = hdmi->read(hdmi, HDMI_IH_I2CMPHY_STAT0)) & 0x3) == 0) {
 		if (msec-- == 0)
 			return false;
 		udelay(1000);
 	}
+	hdmi->write(hdmi, val, HDMI_IH_I2CMPHY_STAT0);
+
 	return true;
 }
 
@@ -637,7 +641,8 @@ static void __hdmi_phy_i2c_write(struct dw_hdmi *hdmi, unsigned short data,
 		HDMI_PHY_I2CM_DATAO_0_ADDR);
 	hdmi->write(hdmi, HDMI_PHY_I2CM_OPERATION_ADDR_WRITE,
 		HDMI_PHY_I2CM_OPERATION_ADDR);
-	hdmi_phy_wait_i2c_done(hdmi, 1000);
+	if (hdmi_phy_wait_i2c_done(hdmi, 1000) == false)
+		dev_err(hdmi->dev, "hdmi phy write failed\n");
 }
 
 static int hdmi_phy_i2c_write(struct dw_hdmi *hdmi, unsigned short data,
@@ -773,16 +778,19 @@ static int hdmi_phy_configure(struct dw_hdmi *hdmi, unsigned char prep,
 	hdmi_phy_i2c_write(hdmi, 0x01ad, 0x0E);  /* VLEVCTRL */
 	/* REMOVE CLK TERM */
 	hdmi_phy_i2c_write(hdmi, 0x8000, 0x05);  /* CKCALCTRL */
+	if (hdmi->dev_type != RK3288_HDMI) {
+		dw_hdmi_phy_enable_power(hdmi, 1);
 
-	dw_hdmi_phy_enable_power(hdmi, 1);
+		/* toggle TMDS enable */
+		dw_hdmi_phy_enable_tmds(hdmi, 0);
+		dw_hdmi_phy_enable_tmds(hdmi, 1);
 
-	/* toggle TMDS enable */
-	dw_hdmi_phy_enable_tmds(hdmi, 0);
-	dw_hdmi_phy_enable_tmds(hdmi, 1);
-
-	/* gen2 tx power on */
-	dw_hdmi_phy_gen2_txpwron(hdmi, 1);
-	dw_hdmi_phy_gen2_pddq(hdmi, 0);
+		/* gen2 tx power on */
+		dw_hdmi_phy_gen2_txpwron(hdmi, 1);
+		dw_hdmi_phy_gen2_pddq(hdmi, 0);
+	} else {
+		hdmi->write(hdmi, 0x6e, HDMI_PHY_CONF0);
+	}
 
 	/*Wait for PHY PLL lock */
 	msec = 5;
