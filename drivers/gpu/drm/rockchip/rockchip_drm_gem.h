@@ -15,6 +15,8 @@
 #ifndef _ROCKCHIP_DRM_GEM_H
 #define _ROCKCHIP_DRM_GEM_H
 
+#include <drm/drm_gem.h>
+
 #define to_rockchip_obj(x) container_of(x, struct rockchip_gem_object, base)
 
 struct rockchip_gem_object {
