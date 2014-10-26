@@ -57,7 +57,7 @@ static const struct curr_ctrl imx_cur_ctr[] = {
 	}
 };
 
-static void dw_hdmi_imx_set_crtc_mux(struct imx_hdmi *hdmi)
+static void dw_hdmi_imx_set_crtc_mux(struct dw_hdmi *hdmi)
 {
 	struct drm_encoder *encoder = &hdmi->encoder;
 	int mux = imx_drm_encoder_get_mux_id(hdmi->dev->of_node, encoder);
@@ -67,14 +67,14 @@ static void dw_hdmi_imx_set_crtc_mux(struct imx_hdmi *hdmi)
 			   mux << IMX6Q_GPR3_HDMI_MUX_CTL_SHIFT);
 }
 
-static void dw_hdmi_imx_encoder_prepare(struct imx_hdmi *hdmi)
+static void dw_hdmi_imx_encoder_prepare(struct dw_hdmi *hdmi)
 {
 	struct drm_encoder *encoder = &hdmi->encoder;
 
 	imx_drm_panel_format(encoder, V4L2_PIX_FMT_RGB24);
 }
 
-static const struct imx_hdmi_drv_data imx6q_hdmi_drv_data = {
+static const struct dw_hdmi_drv_data imx6q_hdmi_drv_data = {
 	.set_crtc_mux        = dw_hdmi_imx_set_crtc_mux,
 	.encoder_prepare     = dw_hdmi_imx_encoder_prepare,
 	.mpll_cfg            = imx_mpll_cfg,
@@ -82,7 +82,7 @@ static const struct imx_hdmi_drv_data imx6q_hdmi_drv_data = {
 	.dev_type	     = IMX6Q_HDMI,
 };
 
-static const struct imx_hdmi_drv_data imx6dl_hdmi_drv_data = {
+static const struct dw_hdmi_drv_data imx6dl_hdmi_drv_data = {
 	.set_crtc_mux        = dw_hdmi_imx_set_crtc_mux,
 	.encoder_prepare     = dw_hdmi_imx_encoder_prepare,
 	.mpll_cfg            = imx_mpll_cfg,
@@ -103,7 +103,7 @@ MODULE_DEVICE_TABLE(of, dw_hdmi_imx_dt_ids);
 
 static int dw_hdmi_imx_probe(struct platform_device *pdev)
 {
-	const struct imx_hdmi_drv_data *drv_data;
+	const struct dw_hdmi_drv_data *drv_data;
 	const struct of_device_id *match;
 
 	if (!pdev->dev.of_node)
@@ -112,12 +112,12 @@ static int dw_hdmi_imx_probe(struct platform_device *pdev)
 	match = of_match_node(dw_hdmi_imx_ids, pdev->dev.of_node);
 	drv_data = match->data;
 
-	return imx_hdmi_pltfm_register(pdev, drv_data);
+	return dw_hdmi_pltfm_register(pdev, drv_data);
 }
 
 static int dw_hdmi_imx_remove(struct platform_device *pdev)
 {
-	return imx_hdmi_pltfm_unregister(pdev);
+	return dw_hdmi_pltfm_unregister(pdev);
 }
 
 static struct platform_driver dw_hdmi_imx_pltfm_driver = {

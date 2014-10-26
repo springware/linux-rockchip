@@ -27,7 +27,7 @@
 #include <drm/drm_encoder_slave.h>
 #include <drm/bridge/dw_hdmi.h>
 
-#include "imx-hdmi.h"
+#include "dw_hdmi.h"
 
 #define RGB			0
 #define YCBCR444		1
@@ -79,17 +79,17 @@ static const u16 csc_coeff_rgb_in_eitu709[3][4] = {
 	{ 0x6756, 0x78ab, 0x2000, 0x0200 }
 };
 
-static inline void hdmi_writel(struct imx_hdmi *hdmi, u32 val, int offset)
+static inline void hdmi_writel(struct dw_hdmi *hdmi, u32 val, int offset)
 {
 	writel(val, hdmi->regs + (offset << 2));
 }
 
-static inline u32 hdmi_readl(struct imx_hdmi *hdmi, int offset)
+static inline u32 hdmi_readl(struct dw_hdmi *hdmi, int offset)
 {
 	return readl(hdmi->regs + (offset << 2));
 }
 
-static void hdmi_modl(struct imx_hdmi *hdmi, u32 data, u32 mask, unsigned reg)
+static void hdmi_modl(struct dw_hdmi *hdmi, u32 data, u32 mask, unsigned reg)
 {
 	u32 val = hdmi_readl(hdmi, reg) & ~mask;
 
@@ -97,23 +97,23 @@ static void hdmi_modl(struct imx_hdmi *hdmi, u32 data, u32 mask, unsigned reg)
 	hdmi_writel(hdmi, val, reg);
 }
 
-static void hdmi_mask_writel(struct imx_hdmi *hdmi, u32 data, unsigned int reg,
+static void hdmi_mask_writel(struct dw_hdmi *hdmi, u32 data, unsigned int reg,
 			     u32 shift, u32 mask)
 {
 	hdmi_modl(hdmi, data << shift, mask, reg);
 }
 
-static inline void hdmi_writeb(struct imx_hdmi *hdmi, u32 val, int offset)
+static inline void hdmi_writeb(struct dw_hdmi *hdmi, u32 val, int offset)
 {
 	writeb(val, hdmi->regs + offset);
 }
 
-static inline u32 hdmi_readb(struct imx_hdmi *hdmi, int offset)
+static inline u32 hdmi_readb(struct dw_hdmi *hdmi, int offset)
 {
 	return readb(hdmi->regs + offset);
 }
 
-static void hdmi_modb(struct imx_hdmi *hdmi, u32 data, u32 mask, unsigned reg)
+static void hdmi_modb(struct dw_hdmi *hdmi, u32 data, u32 mask, unsigned reg)
 {
 	u8 val = hdmi_readb(hdmi, reg) & ~mask;
 
@@ -121,13 +121,13 @@ static void hdmi_modb(struct imx_hdmi *hdmi, u32 data, u32 mask, unsigned reg)
 	hdmi_writeb(hdmi, val, reg);
 }
 
-static void hdmi_mask_writeb(struct imx_hdmi *hdmi, u32 data, unsigned int reg,
+static void hdmi_mask_writeb(struct dw_hdmi *hdmi, u32 data, unsigned int reg,
 		      u32 shift, u32 mask)
 {
 	hdmi_modb(hdmi, data << shift, mask, reg);
 }
 
-static void hdmi_set_clock_regenerator_n(struct imx_hdmi *hdmi,
+static void hdmi_set_clock_regenerator_n(struct dw_hdmi *hdmi,
 					 unsigned int value)
 {
 	hdmi->write(hdmi, value & 0xff, HDMI_AUD_N1);
@@ -138,7 +138,7 @@ static void hdmi_set_clock_regenerator_n(struct imx_hdmi *hdmi,
 	hdmi->mod(hdmi, 0, HDMI_AUD_CTS3_N_SHIFT_MASK, HDMI_AUD_CTS3);
 }
 
-static void hdmi_regenerate_cts(struct imx_hdmi *hdmi, unsigned int cts)
+static void hdmi_regenerate_cts(struct dw_hdmi *hdmi, unsigned int cts)
 {
 	/* Must be set/cleared first */
 	hdmi->mod(hdmi, 0, HDMI_AUD_CTS3_CTS_MANUAL, HDMI_AUD_CTS3);
@@ -285,7 +285,7 @@ static unsigned int hdmi_compute_cts(unsigned int freq, unsigned long pixel_clk,
 	return (cts * ratio) / 100;
 }
 
-static void hdmi_set_clk_regenerator(struct imx_hdmi *hdmi,
+static void hdmi_set_clk_regenerator(struct dw_hdmi *hdmi,
 	unsigned long pixel_clk)
 {
 	unsigned int clk_n, clk_cts;
@@ -309,12 +309,12 @@ static void hdmi_set_clk_regenerator(struct imx_hdmi *hdmi,
 	hdmi_regenerate_cts(hdmi, clk_cts);
 }
 
-static void hdmi_init_clk_regenerator(struct imx_hdmi *hdmi)
+static void hdmi_init_clk_regenerator(struct dw_hdmi *hdmi)
 {
 	hdmi_set_clk_regenerator(hdmi, 74250000);
 }
 
-static void hdmi_clk_regenerator_update_pixel_clock(struct imx_hdmi *hdmi)
+static void hdmi_clk_regenerator_update_pixel_clock(struct dw_hdmi *hdmi)
 {
 	hdmi_set_clk_regenerator(hdmi, hdmi->hdmi_data.video_mode.mpixelclock);
 }
@@ -326,7 +326,7 @@ static void hdmi_clk_regenerator_update_pixel_clock(struct imx_hdmi *hdmi)
  *			pin{31~24} <==> G[7:0]
  *			pin{15~8}  <==> B[7:0]
  */
-static void hdmi_video_sample(struct imx_hdmi *hdmi)
+static void hdmi_video_sample(struct dw_hdmi *hdmi)
 {
 	int color_format = 0;
 	u8 val;
@@ -382,12 +382,12 @@ static void hdmi_video_sample(struct imx_hdmi *hdmi)
 	hdmi->write(hdmi, 0x0, HDMI_TX_BCBDATA1);
 }
 
-static int is_color_space_conversion(struct imx_hdmi *hdmi)
+static int is_color_space_conversion(struct dw_hdmi *hdmi)
 {
 	return hdmi->hdmi_data.enc_in_format != hdmi->hdmi_data.enc_out_format;
 }
 
-static int is_color_space_decimation(struct imx_hdmi *hdmi)
+static int is_color_space_decimation(struct dw_hdmi *hdmi)
 {
 	if (hdmi->hdmi_data.enc_out_format != YCBCR422_8BITS)
 		return 0;
@@ -397,7 +397,7 @@ static int is_color_space_decimation(struct imx_hdmi *hdmi)
 	return 0;
 }
 
-static int is_color_space_interpolation(struct imx_hdmi *hdmi)
+static int is_color_space_interpolation(struct dw_hdmi *hdmi)
 {
 	if (hdmi->hdmi_data.enc_in_format != YCBCR422_8BITS)
 		return 0;
@@ -407,7 +407,7 @@ static int is_color_space_interpolation(struct imx_hdmi *hdmi)
 	return 0;
 }
 
-static void imx_hdmi_update_csc_coeffs(struct imx_hdmi *hdmi)
+static void dw_hdmi_update_csc_coeffs(struct dw_hdmi *hdmi)
 {
 	const u16 (*csc_coeff)[3][4] = &csc_coeff_default;
 	unsigned i;
@@ -450,7 +450,7 @@ static void imx_hdmi_update_csc_coeffs(struct imx_hdmi *hdmi)
 		  HDMI_CSC_SCALE);
 }
 
-static void hdmi_video_csc(struct imx_hdmi *hdmi)
+static void hdmi_video_csc(struct dw_hdmi *hdmi)
 {
 	int color_depth = 0;
 	int interpolation = HDMI_CSC_CFG_INTMODE_DISABLE;
@@ -478,7 +478,7 @@ static void hdmi_video_csc(struct imx_hdmi *hdmi)
 	hdmi->mod(hdmi, color_depth, HDMI_CSC_SCALE_CSC_COLORDE_PTH_MASK,
 		  HDMI_CSC_SCALE);
 
-	imx_hdmi_update_csc_coeffs(hdmi);
+	dw_hdmi_update_csc_coeffs(hdmi);
 }
 
 /*
@@ -486,7 +486,7 @@ static void hdmi_video_csc(struct imx_hdmi *hdmi)
  * for example, if input is YCC422 mode or repeater is used,
  * data should be repacked this module can be bypassed.
  */
-static void hdmi_video_packetize(struct imx_hdmi *hdmi)
+static void hdmi_video_packetize(struct dw_hdmi *hdmi)
 {
 	unsigned int color_depth = 0;
 	unsigned int remap_size = HDMI_VP_REMAP_YCC422_16bit;
@@ -583,40 +583,40 @@ static void hdmi_video_packetize(struct imx_hdmi *hdmi)
 		  HDMI_VP_CONF);
 }
 
-static inline void hdmi_phy_test_clear(struct imx_hdmi *hdmi,
+static inline void hdmi_phy_test_clear(struct dw_hdmi *hdmi,
 						unsigned char bit)
 {
 	hdmi->mod(hdmi, bit << HDMI_PHY_TST0_TSTCLR_OFFSET,
 		  HDMI_PHY_TST0_TSTCLR_MASK, HDMI_PHY_TST0);
 }
 
-static inline void hdmi_phy_test_enable(struct imx_hdmi *hdmi,
+static inline void hdmi_phy_test_enable(struct dw_hdmi *hdmi,
 						unsigned char bit)
 {
 	hdmi->mod(hdmi, bit << HDMI_PHY_TST0_TSTEN_OFFSET,
 		  HDMI_PHY_TST0_TSTEN_MASK, HDMI_PHY_TST0);
 }
 
-static inline void hdmi_phy_test_clock(struct imx_hdmi *hdmi,
+static inline void hdmi_phy_test_clock(struct dw_hdmi *hdmi,
 						unsigned char bit)
 {
 	hdmi->mod(hdmi, bit << HDMI_PHY_TST0_TSTCLK_OFFSET,
 		  HDMI_PHY_TST0_TSTCLK_MASK, HDMI_PHY_TST0);
 }
 
-static inline void hdmi_phy_test_din(struct imx_hdmi *hdmi,
+static inline void hdmi_phy_test_din(struct dw_hdmi *hdmi,
 						unsigned char bit)
 {
 	hdmi->write(hdmi, bit, HDMI_PHY_TST1);
 }
 
-static inline void hdmi_phy_test_dout(struct imx_hdmi *hdmi,
+static inline void hdmi_phy_test_dout(struct dw_hdmi *hdmi,
 						unsigned char bit)
 {
 	hdmi->write(hdmi, bit, HDMI_PHY_TST2);
 }
 
-static bool hdmi_phy_wait_i2c_done(struct imx_hdmi *hdmi, int msec)
+static bool hdmi_phy_wait_i2c_done(struct dw_hdmi *hdmi, int msec)
 {
 	while ((hdmi->read(hdmi, HDMI_IH_I2CMPHY_STAT0) & 0x3) == 0) {
 		if (msec-- == 0)
@@ -626,7 +626,7 @@ static bool hdmi_phy_wait_i2c_done(struct imx_hdmi *hdmi, int msec)
 	return true;
 }
 
-static void __hdmi_phy_i2c_write(struct imx_hdmi *hdmi, unsigned short data,
+static void __hdmi_phy_i2c_write(struct dw_hdmi *hdmi, unsigned short data,
 			      unsigned char addr)
 {
 	hdmi->write(hdmi, 0xFF, HDMI_IH_I2CMPHY_STAT0);
@@ -640,56 +640,56 @@ static void __hdmi_phy_i2c_write(struct imx_hdmi *hdmi, unsigned short data,
 	hdmi_phy_wait_i2c_done(hdmi, 1000);
 }
 
-static int hdmi_phy_i2c_write(struct imx_hdmi *hdmi, unsigned short data,
+static int hdmi_phy_i2c_write(struct dw_hdmi *hdmi, unsigned short data,
 				     unsigned char addr)
 {
 	__hdmi_phy_i2c_write(hdmi, data, addr);
 	return 0;
 }
 
-static void imx_hdmi_phy_enable_power(struct imx_hdmi *hdmi, u8 enable)
+static void dw_hdmi_phy_enable_power(struct dw_hdmi *hdmi, u8 enable)
 {
 	hdmi->mask_write(hdmi, enable, HDMI_PHY_CONF0,
 			 HDMI_PHY_CONF0_PDZ_OFFSET,
 			 HDMI_PHY_CONF0_PDZ_MASK);
 }
 
-static void imx_hdmi_phy_enable_tmds(struct imx_hdmi *hdmi, u8 enable)
+static void dw_hdmi_phy_enable_tmds(struct dw_hdmi *hdmi, u8 enable)
 {
 	hdmi->mask_write(hdmi, enable, HDMI_PHY_CONF0,
 			 HDMI_PHY_CONF0_ENTMDS_OFFSET,
 			 HDMI_PHY_CONF0_ENTMDS_MASK);
 }
 
-static void imx_hdmi_phy_gen2_pddq(struct imx_hdmi *hdmi, u8 enable)
+static void dw_hdmi_phy_gen2_pddq(struct dw_hdmi *hdmi, u8 enable)
 {
 	hdmi->mask_write(hdmi, enable, HDMI_PHY_CONF0,
 			 HDMI_PHY_CONF0_GEN2_PDDQ_OFFSET,
 			 HDMI_PHY_CONF0_GEN2_PDDQ_MASK);
 }
 
-static void imx_hdmi_phy_gen2_txpwron(struct imx_hdmi *hdmi, u8 enable)
+static void dw_hdmi_phy_gen2_txpwron(struct dw_hdmi *hdmi, u8 enable)
 {
 	hdmi->mask_write(hdmi, enable, HDMI_PHY_CONF0,
 			 HDMI_PHY_CONF0_GEN2_TXPWRON_OFFSET,
 			 HDMI_PHY_CONF0_GEN2_TXPWRON_MASK);
 }
 
-static void imx_hdmi_phy_sel_data_en_pol(struct imx_hdmi *hdmi, u8 enable)
+static void dw_hdmi_phy_sel_data_en_pol(struct dw_hdmi *hdmi, u8 enable)
 {
 	hdmi->mask_write(hdmi, enable, HDMI_PHY_CONF0,
 			 HDMI_PHY_CONF0_SELDATAENPOL_OFFSET,
 			 HDMI_PHY_CONF0_SELDATAENPOL_MASK);
 }
 
-static void imx_hdmi_phy_sel_interface_control(struct imx_hdmi *hdmi, u8 enable)
+static void dw_hdmi_phy_sel_interface_control(struct dw_hdmi *hdmi, u8 enable)
 {
 	hdmi->mask_write(hdmi, enable, HDMI_PHY_CONF0,
 			 HDMI_PHY_CONF0_SELDIPIF_OFFSET,
 			 HDMI_PHY_CONF0_SELDIPIF_MASK);
 }
 
-static int hdmi_phy_configure(struct imx_hdmi *hdmi, unsigned char prep,
+static int hdmi_phy_configure(struct dw_hdmi *hdmi, unsigned char prep,
 			      unsigned char res, int cscon)
 {
 	unsigned res_idx, i;
@@ -724,10 +724,10 @@ static int hdmi_phy_configure(struct imx_hdmi *hdmi, unsigned char prep,
 	hdmi->write(hdmi, val, HDMI_MC_FLOWCTRL);
 
 	/* gen2 tx power off */
-	imx_hdmi_phy_gen2_txpwron(hdmi, 0);
+	dw_hdmi_phy_gen2_txpwron(hdmi, 0);
 
 	/* gen2 pddq */
-	imx_hdmi_phy_gen2_pddq(hdmi, 1);
+	dw_hdmi_phy_gen2_pddq(hdmi, 1);
 
 	/* PHY reset */
 	hdmi->write(hdmi, HDMI_MC_PHYRSTZ_DEASSERT, HDMI_MC_PHYRSTZ);
@@ -774,15 +774,15 @@ static int hdmi_phy_configure(struct imx_hdmi *hdmi, unsigned char prep,
 	/* REMOVE CLK TERM */
 	hdmi_phy_i2c_write(hdmi, 0x8000, 0x05);  /* CKCALCTRL */
 
-	imx_hdmi_phy_enable_power(hdmi, 1);
+	dw_hdmi_phy_enable_power(hdmi, 1);
 
 	/* toggle TMDS enable */
-	imx_hdmi_phy_enable_tmds(hdmi, 0);
-	imx_hdmi_phy_enable_tmds(hdmi, 1);
+	dw_hdmi_phy_enable_tmds(hdmi, 0);
+	dw_hdmi_phy_enable_tmds(hdmi, 1);
 
 	/* gen2 tx power on */
-	imx_hdmi_phy_gen2_txpwron(hdmi, 1);
-	imx_hdmi_phy_gen2_pddq(hdmi, 0);
+	dw_hdmi_phy_gen2_txpwron(hdmi, 1);
+	dw_hdmi_phy_gen2_pddq(hdmi, 0);
 
 	/*Wait for PHY PLL lock */
 	msec = 5;
@@ -803,7 +803,7 @@ static int hdmi_phy_configure(struct imx_hdmi *hdmi, unsigned char prep,
 	return 0;
 }
 
-static int imx_hdmi_phy_init(struct imx_hdmi *hdmi)
+static int dw_hdmi_phy_init(struct dw_hdmi *hdmi)
 {
 	int i, ret;
 	bool cscon = false;
@@ -814,10 +814,10 @@ static int imx_hdmi_phy_init(struct imx_hdmi *hdmi)
 
 	/* HDMI Phy spec says to do the phy initialization sequence twice */
 	for (i = 0; i < 2; i++) {
-		imx_hdmi_phy_sel_data_en_pol(hdmi, 1);
-		imx_hdmi_phy_sel_interface_control(hdmi, 0);
-		imx_hdmi_phy_enable_tmds(hdmi, 0);
-		imx_hdmi_phy_enable_power(hdmi, 0);
+		dw_hdmi_phy_sel_data_en_pol(hdmi, 1);
+		dw_hdmi_phy_sel_interface_control(hdmi, 0);
+		dw_hdmi_phy_enable_tmds(hdmi, 0);
+		dw_hdmi_phy_enable_power(hdmi, 0);
 
 		/* Enable CSC */
 		ret = hdmi_phy_configure(hdmi, 0, 8, cscon);
@@ -829,7 +829,7 @@ static int imx_hdmi_phy_init(struct imx_hdmi *hdmi)
 	return 0;
 }
 
-static void hdmi_tx_hdcp_config(struct imx_hdmi *hdmi)
+static void hdmi_tx_hdcp_config(struct dw_hdmi *hdmi)
 {
 	u8 de;
 
@@ -848,7 +848,7 @@ static void hdmi_tx_hdcp_config(struct imx_hdmi *hdmi)
 		  HDMI_A_HDCPCFG1_ENCRYPTIONDISABLE_MASK, HDMI_A_HDCPCFG1);
 }
 
-static void hdmi_config_AVI(struct imx_hdmi *hdmi)
+static void hdmi_config_AVI(struct dw_hdmi *hdmi)
 {
 	u8 val, pix_fmt, under_scan;
 	u8 act_ratio, coded_ratio, colorimetry, ext_colorimetry;
@@ -942,7 +942,7 @@ static void hdmi_config_AVI(struct imx_hdmi *hdmi)
 	hdmi->write(hdmi, 0, HDMI_FC_AVISRB1);
 }
 
-static void hdmi_av_composer(struct imx_hdmi *hdmi,
+static void hdmi_av_composer(struct dw_hdmi *hdmi,
 			     const struct drm_display_mode *mode)
 {
 	u8 inv_val;
@@ -1026,19 +1026,19 @@ static void hdmi_av_composer(struct imx_hdmi *hdmi,
 	hdmi->write(hdmi, vsync_len, HDMI_FC_VSYNCINWIDTH);
 }
 
-static void imx_hdmi_phy_disable(struct imx_hdmi *hdmi)
+static void dw_hdmi_phy_disable(struct dw_hdmi *hdmi)
 {
 	if (!hdmi->phy_enabled)
 		return;
 
-	imx_hdmi_phy_enable_tmds(hdmi, 0);
-	imx_hdmi_phy_enable_power(hdmi, 0);
+	dw_hdmi_phy_enable_tmds(hdmi, 0);
+	dw_hdmi_phy_enable_power(hdmi, 0);
 
 	hdmi->phy_enabled = false;
 }
 
 /* HDMI Initialization Step B.4 */
-static void imx_hdmi_enable_video_path(struct imx_hdmi *hdmi)
+static void dw_hdmi_enable_video_path(struct dw_hdmi *hdmi)
 {
 	u8 clkdis;
 
@@ -1067,13 +1067,13 @@ static void imx_hdmi_enable_video_path(struct imx_hdmi *hdmi)
 	}
 }
 
-static void hdmi_enable_audio_clk(struct imx_hdmi *hdmi)
+static void hdmi_enable_audio_clk(struct dw_hdmi *hdmi)
 {
 	hdmi->mod(hdmi, 0, HDMI_MC_CLKDIS_AUDCLK_DISABLE, HDMI_MC_CLKDIS);
 }
 
 /* Workaround to clear the overflow condition */
-static void imx_hdmi_clear_overflow(struct imx_hdmi *hdmi)
+static void dw_hdmi_clear_overflow(struct dw_hdmi *hdmi)
 {
 	int count;
 	u8 val;
@@ -1091,19 +1091,19 @@ static void imx_hdmi_clear_overflow(struct imx_hdmi *hdmi)
 		hdmi->write(hdmi, val, HDMI_FC_INVIDCONF);
 }
 
-static void hdmi_enable_overflow_interrupts(struct imx_hdmi *hdmi)
+static void hdmi_enable_overflow_interrupts(struct dw_hdmi *hdmi)
 {
 	hdmi->write(hdmi, 0, HDMI_FC_MASK2);
 	hdmi->write(hdmi, 0, HDMI_IH_MUTE_FC_STAT2);
 }
 
-static void hdmi_disable_overflow_interrupts(struct imx_hdmi *hdmi)
+static void hdmi_disable_overflow_interrupts(struct dw_hdmi *hdmi)
 {
 	hdmi->write(hdmi, HDMI_IH_MUTE_FC_STAT2_OVERFLOW_MASK,
 		    HDMI_IH_MUTE_FC_STAT2);
 }
 
-static int imx_hdmi_setup(struct imx_hdmi *hdmi, struct drm_display_mode *mode)
+static int dw_hdmi_setup(struct dw_hdmi *hdmi, struct drm_display_mode *mode)
 {
 	int ret;
 
@@ -1155,12 +1155,12 @@ static int imx_hdmi_setup(struct imx_hdmi *hdmi, struct drm_display_mode *mode)
 	hdmi_av_composer(hdmi, mode);
 
 	/* HDMI Initializateion Step B.2 */
-	ret = imx_hdmi_phy_init(hdmi);
+	ret = dw_hdmi_phy_init(hdmi);
 	if (ret)
 		return ret;
 
 	/* HDMI Initialization Step B.3 */
-	imx_hdmi_enable_video_path(hdmi);
+	dw_hdmi_enable_video_path(hdmi);
 
 	/* not for DVI mode */
 	if (hdmi->hdmi_data.video_mode.mdvi) {
@@ -1181,7 +1181,7 @@ static int imx_hdmi_setup(struct imx_hdmi *hdmi, struct drm_display_mode *mode)
 	hdmi_video_sample(hdmi);
 	hdmi_tx_hdcp_config(hdmi);
 
-	imx_hdmi_clear_overflow(hdmi);
+	dw_hdmi_clear_overflow(hdmi);
 	if (hdmi->cable_plugin && !hdmi->hdmi_data.video_mode.mdvi)
 		hdmi_enable_overflow_interrupts(hdmi);
 
@@ -1189,7 +1189,7 @@ static int imx_hdmi_setup(struct imx_hdmi *hdmi, struct drm_display_mode *mode)
 }
 
 /* Wait until we are registered to enable interrupts */
-static int imx_hdmi_fb_registered(struct imx_hdmi *hdmi)
+static int dw_hdmi_fb_registered(struct dw_hdmi *hdmi)
 {
 	hdmi->write(hdmi, HDMI_PHY_I2CM_INT_ADDR_DONE_POL,
 		    HDMI_PHY_I2CM_INT_ADDR);
@@ -1207,7 +1207,7 @@ static int imx_hdmi_fb_registered(struct imx_hdmi *hdmi)
 	return 0;
 }
 
-static void initialize_hdmi_ih_mutes(struct imx_hdmi *hdmi)
+static void initialize_hdmi_ih_mutes(struct dw_hdmi *hdmi)
 {
 	u8 ih_mute;
 
@@ -1259,29 +1259,29 @@ static void initialize_hdmi_ih_mutes(struct imx_hdmi *hdmi)
 	hdmi->write(hdmi, ih_mute, HDMI_IH_MUTE);
 }
 
-static void imx_hdmi_poweron(struct imx_hdmi *hdmi)
+static void dw_hdmi_poweron(struct dw_hdmi *hdmi)
 {
-	imx_hdmi_setup(hdmi, &hdmi->previous_mode);
+	dw_hdmi_setup(hdmi, &hdmi->previous_mode);
 }
 
-static void imx_hdmi_poweroff(struct imx_hdmi *hdmi)
+static void dw_hdmi_poweroff(struct dw_hdmi *hdmi)
 {
-	imx_hdmi_phy_disable(hdmi);
+	dw_hdmi_phy_disable(hdmi);
 }
 
-static enum drm_connector_status imx_hdmi_connector_detect(struct drm_connector
+static enum drm_connector_status dw_hdmi_connector_detect(struct drm_connector
 							*connector, bool force)
 {
-	struct imx_hdmi *hdmi = container_of(connector, struct imx_hdmi,
+	struct dw_hdmi *hdmi = container_of(connector, struct dw_hdmi,
 					     connector);
 
 	return hdmi->read(hdmi, HDMI_PHY_STAT0) & HDMI_PHY_HPD ?
 		connector_status_connected : connector_status_disconnected;
 }
 
-static int imx_hdmi_connector_get_modes(struct drm_connector *connector)
+static int dw_hdmi_connector_get_modes(struct drm_connector *connector)
 {
-	struct imx_hdmi *hdmi = container_of(connector, struct imx_hdmi,
+	struct dw_hdmi *hdmi = container_of(connector, struct dw_hdmi,
 					     connector);
 	struct edid *edid;
 	int ret;
@@ -1304,78 +1304,78 @@ static int imx_hdmi_connector_get_modes(struct drm_connector *connector)
 	return 0;
 }
 
-static struct drm_encoder *imx_hdmi_connector_best_encoder(struct drm_connector
+static struct drm_encoder *dw_hdmi_connector_best_encoder(struct drm_connector
 							   *connector)
 {
-	struct imx_hdmi *hdmi = container_of(connector, struct imx_hdmi,
+	struct dw_hdmi *hdmi = container_of(connector, struct dw_hdmi,
 					     connector);
 
 	return &hdmi->encoder;
 }
 
-static void imx_hdmi_encoder_mode_set(struct drm_encoder *encoder,
+static void dw_hdmi_encoder_mode_set(struct drm_encoder *encoder,
 			struct drm_display_mode *mode,
 			struct drm_display_mode *adjusted_mode)
 {
-	struct imx_hdmi *hdmi = container_of(encoder, struct imx_hdmi, encoder);
+	struct dw_hdmi *hdmi = container_of(encoder, struct dw_hdmi, encoder);
 
-	imx_hdmi_setup(hdmi, mode);
+	dw_hdmi_setup(hdmi, mode);
 
 	/* Store the display mode for plugin/DKMS poweron events */
 	memcpy(&hdmi->previous_mode, mode, sizeof(hdmi->previous_mode));
 }
 
-static bool imx_hdmi_encoder_mode_fixup(struct drm_encoder *encoder,
+static bool dw_hdmi_encoder_mode_fixup(struct drm_encoder *encoder,
 			const struct drm_display_mode *mode,
 			struct drm_display_mode *adjusted_mode)
 {
 	return true;
 }
 
-static void imx_hdmi_encoder_disable(struct drm_encoder *encoder)
+static void dw_hdmi_encoder_disable(struct drm_encoder *encoder)
 {
 }
 
-static void imx_hdmi_encoder_dpms(struct drm_encoder *encoder, int mode)
+static void dw_hdmi_encoder_dpms(struct drm_encoder *encoder, int mode)
 {
-	struct imx_hdmi *hdmi = container_of(encoder, struct imx_hdmi, encoder);
+	struct dw_hdmi *hdmi = container_of(encoder, struct dw_hdmi, encoder);
 
 	if (mode)
-		imx_hdmi_poweroff(hdmi);
+		dw_hdmi_poweroff(hdmi);
 	else
-		imx_hdmi_poweron(hdmi);
+		dw_hdmi_poweron(hdmi);
 }
 
-static void imx_hdmi_encoder_prepare(struct drm_encoder *encoder)
+static void dw_hdmi_encoder_prepare(struct drm_encoder *encoder)
 {
-	struct imx_hdmi *hdmi = container_of(encoder, struct imx_hdmi, encoder);
+	struct dw_hdmi *hdmi = container_of(encoder, struct dw_hdmi, encoder);
 
-	imx_hdmi_poweroff(hdmi);
+	dw_hdmi_poweroff(hdmi);
 
 	if (hdmi->drv_data->encoder_prepare)
 		hdmi->drv_data->encoder_prepare(hdmi);
 }
 
-static void imx_hdmi_encoder_commit(struct drm_encoder *encoder)
+static void dw_hdmi_encoder_commit(struct drm_encoder *encoder)
 {
-	struct imx_hdmi *hdmi = container_of(encoder, struct imx_hdmi, encoder);
+	struct dw_hdmi *hdmi = container_of(encoder, struct dw_hdmi, encoder);
 
 	if (hdmi->drv_data->set_crtc_mux)
 		hdmi->drv_data->set_crtc_mux(hdmi);
 
-	imx_hdmi_poweron(hdmi);
+	dw_hdmi_poweron(hdmi);
 }
 
-void imx_hdmi_connector_destroy(struct drm_connector *connector)
+void dw_hdmi_connector_destroy(struct drm_connector *connector)
 {
 	drm_connector_unregister(connector);
 	drm_connector_cleanup(connector);
 }
 
-static int imx_hdmi_connector_mode_valid(struct drm_connector *connector,
+static int dw_hdmi_connector_mode_valid(struct drm_connector *connector,
 					 struct drm_display_mode *mode)
 {
-	struct imx_hdmi *hdmi = container_of(connector, struct imx_hdmi,
+	struct dw_hdmi *hdmi = container_of(connector, struct dw_hdmi,
 					     connector);
 	if (hdmi->drv_data->mode_valid)
 		return hdmi->drv_data->mode_valid(connector, mode);
@@ -1383,34 +1383,34 @@ static int imx_hdmi_connector_mode_valid(struct drm_connector *connector,
 		return MODE_OK;
 }
 
-static struct drm_encoder_funcs imx_hdmi_encoder_funcs = {
+static struct drm_encoder_funcs dw_hdmi_encoder_funcs = {
 	.destroy = drm_encoder_cleanup,
 };
 
-static struct drm_encoder_helper_funcs imx_hdmi_encoder_helper_funcs = {
-	.dpms = imx_hdmi_encoder_dpms,
-	.prepare = imx_hdmi_encoder_prepare,
-	.commit = imx_hdmi_encoder_commit,
-	.mode_set = imx_hdmi_encoder_mode_set,
-	.mode_fixup = imx_hdmi_encoder_mode_fixup,
-	.disable = imx_hdmi_encoder_disable,
+static struct drm_encoder_helper_funcs dw_hdmi_encoder_helper_funcs = {
+	.dpms = dw_hdmi_encoder_dpms,
+	.prepare = dw_hdmi_encoder_prepare,
+	.commit = dw_hdmi_encoder_commit,
+	.mode_set = dw_hdmi_encoder_mode_set,
+	.mode_fixup = dw_hdmi_encoder_mode_fixup,
+	.disable = dw_hdmi_encoder_disable,
 };
 
-static struct drm_connector_funcs imx_hdmi_connector_funcs = {
+static struct drm_connector_funcs dw_hdmi_connector_funcs = {
 	.dpms = drm_helper_connector_dpms,
 	.fill_modes = drm_helper_probe_single_connector_modes,
-	.detect = imx_hdmi_connector_detect,
-	.destroy = imx_hdmi_connector_destroy,
+	.detect = dw_hdmi_connector_detect,
+	.destroy = dw_hdmi_connector_destroy,
 };
 
-static struct drm_connector_helper_funcs imx_hdmi_connector_helper_funcs = {
-	.get_modes = imx_hdmi_connector_get_modes,
-	.best_encoder = imx_hdmi_connector_best_encoder,
+static struct drm_connector_helper_funcs dw_hdmi_connector_helper_funcs = {
+	.get_modes = dw_hdmi_connector_get_modes,
+	.best_encoder = dw_hdmi_connector_best_encoder,
 };
 
-static irqreturn_t imx_hdmi_hardirq(int irq, void *dev_id)
+static irqreturn_t dw_hdmi_hardirq(int irq, void *dev_id)
 {
-	struct imx_hdmi *hdmi = dev_id;
+	struct dw_hdmi *hdmi = dev_id;
 	u8 intr_stat;
 
 	intr_stat = hdmi->read(hdmi, HDMI_IH_PHY_STAT0);
@@ -1420,9 +1420,9 @@ static irqreturn_t imx_hdmi_hardirq(int irq, void *dev_id)
 	return intr_stat ? IRQ_WAKE_THREAD : IRQ_NONE;
 }
 
-static irqreturn_t imx_hdmi_irq(int irq, void *dev_id)
+static irqreturn_t dw_hdmi_irq(int irq, void *dev_id)
 {
-	struct imx_hdmi *hdmi = dev_id;
+	struct dw_hdmi *hdmi = dev_id;
 	u8 intr_stat;
 	u8 phy_int_pol;
 
@@ -1436,14 +1436,14 @@ static irqreturn_t imx_hdmi_irq(int irq, void *dev_id)
 
 			hdmi->mod(hdmi, 0, HDMI_PHY_HPD, HDMI_PHY_POL0);
 
-			imx_hdmi_poweron(hdmi);
+			dw_hdmi_poweron(hdmi);
 		} else {
 			dev_dbg(hdmi->dev, "EVENT=plugout\n");
 
 			hdmi->mod(hdmi, HDMI_PHY_HPD, HDMI_PHY_HPD,
 				HDMI_PHY_POL0);
 
-			imx_hdmi_poweroff(hdmi);
+			dw_hdmi_poweroff(hdmi);
 		}
 		drm_helper_hpd_irq_event(hdmi->connector.dev);
 	}
@@ -1454,7 +1454,7 @@ static irqreturn_t imx_hdmi_irq(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static int imx_hdmi_register(struct drm_device *drm, struct imx_hdmi *hdmi)
+static int dw_hdmi_register(struct drm_device *drm, struct dw_hdmi *hdmi)
 {
 	struct drm_encoder *encoder = &hdmi->encoder;
 	struct device *dev = hdmi->dev;
@@ -1463,13 +1463,13 @@ static int imx_hdmi_register(struct drm_device *drm, struct imx_hdmi *hdmi)
 
 	hdmi->connector.polled = DRM_CONNECTOR_POLL_HPD;
 
-	drm_encoder_helper_add(&hdmi->encoder, &imx_hdmi_encoder_helper_funcs);
-	drm_encoder_init(drm, &hdmi->encoder, &imx_hdmi_encoder_funcs,
+	drm_encoder_helper_add(&hdmi->encoder, &dw_hdmi_encoder_helper_funcs);
+	drm_encoder_init(drm, &hdmi->encoder, &dw_hdmi_encoder_funcs,
 			 DRM_MODE_ENCODER_TMDS);
 
 	drm_connector_helper_add(&hdmi->connector,
-				 &imx_hdmi_connector_helper_funcs);
-	drm_connector_init(drm, &hdmi->connector, &imx_hdmi_connector_funcs,
+				 &dw_hdmi_connector_helper_funcs);
+	drm_connector_init(drm, &hdmi->connector, &dw_hdmi_connector_funcs,
 			   DRM_MODE_CONNECTOR_HDMIA);
 
 	hdmi->connector.encoder = &hdmi->encoder;
@@ -1479,10 +1479,10 @@ static int imx_hdmi_register(struct drm_device *drm, struct imx_hdmi *hdmi)
 	return 0;
 }
 
-static int imx_hdmi_bind(struct device *dev, struct device *master, void *data)
+static int dw_hdmi_bind(struct device *dev, struct device *master, void *data)
 {
 	struct platform_device *pdev = to_platform_device(dev);
-	struct imx_hdmi *hdmi = platform_get_drvdata(pdev);
+	struct dw_hdmi *hdmi = platform_get_drvdata(pdev);
 	struct drm_device *drm = data;
 	struct device_node *np = dev->of_node;
 	struct device_node *ddc_node;
@@ -1527,8 +1527,8 @@ static int imx_hdmi_bind(struct device *dev, struct device *master, void *data)
 	if (irq < 0)
 		return irq;
 
-	ret = devm_request_threaded_irq(dev, irq, imx_hdmi_hardirq,
-					imx_hdmi_irq, IRQF_SHARED,
+	ret = devm_request_threaded_irq(dev, irq, dw_hdmi_hardirq,
+					dw_hdmi_irq, IRQF_SHARED,
 					dev_name(dev), hdmi);
 	if (ret)
 		return ret;
@@ -1597,11 +1597,11 @@ static int imx_hdmi_bind(struct device *dev, struct device *master, void *data)
 	/* Clear Hotplug interrupts */
 	hdmi->write(hdmi, HDMI_IH_PHY_STAT0_HPD, HDMI_IH_PHY_STAT0);
 
-	ret = imx_hdmi_fb_registered(hdmi);
+	ret = dw_hdmi_fb_registered(hdmi);
 	if (ret)
 		goto err_iahb;
 
-	ret = imx_hdmi_register(drm, hdmi);
+	ret = dw_hdmi_register(drm, hdmi);
 	if (ret)
 		goto err_iahb;
 
@@ -1620,10 +1620,10 @@ err_isfr:
 	return ret;
 }
 
-static void imx_hdmi_unbind(struct device *dev, struct device *master,
+static void dw_hdmi_unbind(struct device *dev, struct device *master,
 	void *data)
 {
-	struct imx_hdmi *hdmi = dev_get_drvdata(dev);
+	struct dw_hdmi *hdmi = dev_get_drvdata(dev);
 
 	/* Disable all interrupts */
 	hdmi->write(hdmi, ~0, HDMI_IH_MUTE_PHY_STAT0);
@@ -1637,25 +1637,25 @@ static void imx_hdmi_unbind(struct device *dev, struct device *master,
 }
 
 static const struct component_ops hdmi_ops = {
-	.bind	= imx_hdmi_bind,
-	.unbind	= imx_hdmi_unbind,
+	.bind	= dw_hdmi_bind,
+	.unbind	= dw_hdmi_unbind,
 };
 
-static int imx_hdmi_platform_probe(struct platform_device *pdev)
+static int dw_hdmi_platform_probe(struct platform_device *pdev)
 {
 	return component_add(&pdev->dev, &hdmi_ops);
 }
 
-static int imx_hdmi_platform_remove(struct platform_device *pdev)
+static int dw_hdmi_platform_remove(struct platform_device *pdev)
 {
 	component_del(&pdev->dev, &hdmi_ops);
 	return 0;
 }
 
-int imx_hdmi_pltfm_register(struct platform_device *pdev,
-			   const struct imx_hdmi_drv_data *drv_data)
+int dw_hdmi_pltfm_register(struct platform_device *pdev,
+			   const struct dw_hdmi_drv_data *drv_data)
 {
-	struct imx_hdmi *hdmi;
+	struct dw_hdmi *hdmi;
 
 	hdmi = devm_kzalloc(&pdev->dev, sizeof(*hdmi), GFP_KERNEL);
 	if (!hdmi)
@@ -1669,17 +1669,17 @@ int imx_hdmi_pltfm_register(struct platform_device *pdev,
 
 	platform_set_drvdata(pdev, hdmi);
 
-	return imx_hdmi_platform_probe(pdev);
+	return dw_hdmi_platform_probe(pdev);
 }
-EXPORT_SYMBOL_GPL(imx_hdmi_pltfm_register);
+EXPORT_SYMBOL_GPL(dw_hdmi_pltfm_register);
 
-int imx_hdmi_pltfm_unregister(struct platform_device *pdev)
+int dw_hdmi_pltfm_unregister(struct platform_device *pdev)
 {
-	return imx_hdmi_platform_remove(pdev);
+	return dw_hdmi_platform_remove(pdev);
 }
-EXPORT_SYMBOL_GPL(imx_hdmi_pltfm_unregister);
+EXPORT_SYMBOL_GPL(dw_hdmi_pltfm_unregister);
 
 MODULE_AUTHOR("Sascha Hauer <s.hauer@pengutronix.de>");
 MODULE_DESCRIPTION("i.MX6 HDMI transmitter driver");
 MODULE_LICENSE("GPL");
-MODULE_ALIAS("platform:imx-hdmi");
+MODULE_ALIAS("platform:dw-hdmi");

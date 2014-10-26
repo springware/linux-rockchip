@@ -21,7 +21,7 @@ enum {
 	RES_MAX,
 };
 
-enum imx_hdmi_devtype {
+enum dw_hdmi_devtype {
 	IMX6Q_HDMI,
 	IMX6DL_HDMI,
 };
@@ -62,17 +62,17 @@ struct hdmi_data_info {
 };
 
 
-struct imx_hdmi {
+struct dw_hdmi {
 	struct drm_connector connector;
 	struct drm_encoder encoder;
 
-	enum imx_hdmi_devtype dev_type;
+	enum dw_hdmi_devtype dev_type;
 	struct device *dev;
 	struct clk *isfr_clk;
 	struct clk *iahb_clk;
 
 	struct hdmi_data_info hdmi_data;
-	const struct imx_hdmi_drv_data *drv_data;
+	const struct dw_hdmi_drv_data *drv_data;
 	int vic;
 
 	u8 edid[HDMI_EDID_LEN];
@@ -88,25 +88,25 @@ struct imx_hdmi {
 	unsigned int sample_rate;
 	int ratio;
 
-	void (*write)(struct imx_hdmi *hdmi, u32 val, int offset);
-	u32 (*read)(struct imx_hdmi *hdmi, int offset);
-	void (*mod)(struct imx_hdmi *hdmi, u32 data, u32 mask, unsigned reg);
-	void (*mask_write)(struct imx_hdmi *hdmi, u32 data, unsigned int reg,
+	void (*write)(struct dw_hdmi *hdmi, u32 val, int offset);
+	u32 (*read)(struct dw_hdmi *hdmi, int offset);
+	void (*mod)(struct dw_hdmi *hdmi, u32 data, u32 mask, unsigned reg);
+	void (*mask_write)(struct dw_hdmi *hdmi, u32 data, unsigned int reg,
 			      u32 shift, u32 mask);
 };
 
-struct imx_hdmi_drv_data {
-	void (*set_crtc_mux)(struct imx_hdmi *hdmi);
-	void (*encoder_prepare)(struct imx_hdmi *hdmi);
+struct dw_hdmi_drv_data {
+	void (*set_crtc_mux)(struct dw_hdmi *hdmi);
+	void (*encoder_prepare)(struct dw_hdmi *hdmi);
 	enum drm_mode_status (*mode_valid)(struct drm_connector *connector,
                                            struct drm_display_mode *mode);
 	const struct mpll_config *mpll_cfg;
 	const struct curr_ctrl *cur_ctr;
-	enum imx_hdmi_devtype dev_type;
+	enum dw_hdmi_devtype dev_type;
 
 };
 
-int imx_hdmi_pltfm_register(struct platform_device *pdev,
-			    const struct imx_hdmi_drv_data *drv_data);
-int imx_hdmi_pltfm_unregister(struct platform_device *pdev);
+int dw_hdmi_pltfm_register(struct platform_device *pdev,
+			    const struct dw_hdmi_drv_data *drv_data);
+int dw_hdmi_pltfm_unregister(struct platform_device *pdev);
 #endif /* __IMX_HDMI_H__ */
