@@ -195,3 +195,27 @@
 &usb_host1 {
 	status = "okay";
 };
+
+&i2c5 {
+	status = "okay";
+};
+
+&vopb {
+	status = "okay";
+};
+
+&vopb_mmu {
+	status = "okay";
+};
+
+&vopl {
+	status = "okay";
+};
+
+&vopl_mmu {
+	status = "okay";
+};
+
+&hdmi {
+	status = "okay";
+};
