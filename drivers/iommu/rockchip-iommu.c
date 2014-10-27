@@ -708,8 +708,8 @@ static size_t rk_iommu_unmap(struct iommu_domain *domain, unsigned long _iova,
 static int rk_iommu_attach_device(struct iommu_domain *domain,
 				  struct device *dev)
 {
-	struct rk_iommu *iommu = dev_get_drvdata(dev->archdata.iommu);
 	struct rk_iommu_domain *rk_domain = domain->priv;
+	struct rk_iommu *iommu;
 	unsigned long flags;
 	int ret;
 	phys_addr_t dte_addr;
@@ -718,8 +718,10 @@ static int rk_iommu_attach_device(struct iommu_domain *domain,
 	 * Allow 'virtual devices' (e.g., drm) to attach to domain.
 	 * Such a device has a NULL archdata.iommu.
 	 */
-	if (!iommu)
+	if (!dev->archdata.iommu)
 		return 0;
+
+	iommu = dev_get_drvdata(dev->archdata.iommu);
 
 	ret = rk_iommu_enable_stall(iommu);
 	if (ret)
@@ -837,6 +839,32 @@ static void rk_iommu_domain_destroy(struct iommu_domain *domain)
 	domain->priv = NULL;
 }
 
+static int rk_iommu_add_device(struct device *dev)
+{
+	struct iommu_group *group;
+	int ret;
+
+	group = iommu_group_get(dev);
+
+	if (!group) {
+		group = iommu_group_alloc();
+		if (IS_ERR(group)) {
+			dev_err(dev, "Failed to allocate IOMMU group\n");
+			return PTR_ERR(group);
+		}
+	}
+
+	ret = iommu_group_add_device(group, dev);
+	iommu_group_put(group);
+
+	return ret;
+}
+
+static void rk_iommu_remove_device(struct device *dev)
+{
+	iommu_group_remove_device(dev);
+}
+
 static const struct iommu_ops rk_iommu_ops = {
 	.domain_init = rk_iommu_domain_init,
 	.domain_destroy = rk_iommu_domain_destroy,
@@ -845,6 +873,8 @@ static const struct iommu_ops rk_iommu_ops = {
 	.map = rk_iommu_map,
 	.unmap = rk_iommu_unmap,
 	.iova_to_phys = rk_iommu_iova_to_phys,
+	.add_device = rk_iommu_add_device,
+	.remove_device = rk_iommu_remove_device,
 	.pgsize_bitmap = RK_IOMMU_PGSIZE_BITMAP,
 };
 
