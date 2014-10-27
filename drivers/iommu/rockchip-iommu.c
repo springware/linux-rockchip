@@ -739,8 +739,6 @@ static int rk_iommu_attach_device(struct iommu_domain *domain,
 	if (!iommu)
 		return 0;
 
-	iommu = dev_get_drvdata(dev->archdata.iommu);
-
 	ret = rk_iommu_enable_stall(iommu);
 	if (ret)
 		return ret;
@@ -963,8 +961,6 @@ static const struct iommu_ops rk_iommu_ops = {
 	.add_device = rk_iommu_add_device,
 	.remove_device = rk_iommu_remove_device,
 	.iova_to_phys = rk_iommu_iova_to_phys,
-	.add_device = rk_iommu_add_device,
-	.remove_device = rk_iommu_remove_device,
 	.pgsize_bitmap = RK_IOMMU_PGSIZE_BITMAP,
 };
 
