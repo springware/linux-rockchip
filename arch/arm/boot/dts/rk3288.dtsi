@@ -830,43 +830,43 @@
 
 		i2c0 {
 			i2c0_xfer: i2c0-xfer {
-				rockchip,pins = <0 15 RK_FUNC_1 &pcfg_pull_none>,
-						<0 16 RK_FUNC_1 &pcfg_pull_none>;
+				rockchip,pins = <0 15 RK_FUNC_1 &pcfg_pull_up>,
+						<0 16 RK_FUNC_1 &pcfg_pull_up>;
 			};
 		};
 
 		i2c1 {
 			i2c1_xfer: i2c1-xfer {
-				rockchip,pins = <8 4 RK_FUNC_1 &pcfg_pull_none>,
-						<8 5 RK_FUNC_1 &pcfg_pull_none>;
+				rockchip,pins = <8 4 RK_FUNC_1 &pcfg_pull_up>,
+						<8 5 RK_FUNC_1 &pcfg_pull_up>;
 			};
 		};
 
 		i2c2 {
 			i2c2_xfer: i2c2-xfer {
-				rockchip,pins = <6 9 RK_FUNC_1 &pcfg_pull_none>,
-						<6 10 RK_FUNC_1 &pcfg_pull_none>;
+				rockchip,pins = <6 9 RK_FUNC_1 &pcfg_pull_up>,
+						<6 10 RK_FUNC_1 &pcfg_pull_up>;
 			};
 		};
 
 		i2c3 {
 			i2c3_xfer: i2c3-xfer {
-				rockchip,pins = <2 16 RK_FUNC_1 &pcfg_pull_none>,
-						<2 17 RK_FUNC_1 &pcfg_pull_none>;
+				rockchip,pins = <2 16 RK_FUNC_1 &pcfg_pull_up>,
+						<2 17 RK_FUNC_1 &pcfg_pull_up>;
 			};
 		};
 
 		i2c4 {
 			i2c4_xfer: i2c4-xfer {
-				rockchip,pins = <7 17 RK_FUNC_1 &pcfg_pull_none>,
-						<7 18 RK_FUNC_1 &pcfg_pull_none>;
+				rockchip,pins = <7 17 RK_FUNC_1 &pcfg_pull_up>,
+						<7 18 RK_FUNC_1 &pcfg_pull_up>;
 			};
 		};
 
 		i2c5 {
 			i2c5_xfer: i2c5-xfer {
-				rockchip,pins = <7 19 RK_FUNC_1 &pcfg_pull_none>,
-						<7 20 RK_FUNC_1 &pcfg_pull_none>;
+				rockchip,pins = <7 19 RK_FUNC_1 &pcfg_pull_up>,
+						<7 20 RK_FUNC_1 &pcfg_pull_up>;
 			};
 		};
 
