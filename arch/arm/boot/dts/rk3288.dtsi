@@ -657,10 +657,10 @@
 		reg = <0xff980000 0x20000>;
 		reg-io-width = <4>;
 		ddc-i2c-bus = <&i2c5>;
-		gpr = <&grf>;
+		rockchip,grf = <&grf>;
 		interrupts = <GIC_SPI 103 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&cru PCLK_HDMI_CTRL>, <&cru SCLK_HDMI_HDCP>;
-		clock-names = "iahb", "isfr";
+		clocks = <&cru  PCLK_HDMI_CTRL>, <&cru SCLK_HDMI_HDCP>;
+		clock-names = "clk", "hdcp_clk";
 		status = "disabled";
 		ports {
 			hdmi_in: port {

@@ -16,9 +16,7 @@
 #include <linux/irq.h>
 #include <linux/delay.h>
 #include <linux/err.h>
-#include <linux/clk.h>
 #include <linux/hdmi.h>
-#include <linux/mfd/syscon.h>
 #include <linux/of_device.h>
 #include <drm/drm_of.h>
 #include <drm/drmP.h>
@@ -282,7 +280,8 @@ static unsigned int hdmi_compute_cts(unsigned int freq, unsigned long pixel_clk,
 	}
 	if (ratio == 100)
 		return cts;
-	return (cts * ratio) / 100;
+	else
+		return (cts * ratio) / 100;
 }
 
 static void hdmi_set_clk_regenerator(struct dw_hdmi *hdmi,
@@ -699,8 +698,8 @@ static int hdmi_phy_configure(struct dw_hdmi *hdmi, unsigned char prep,
 {
 	unsigned res_idx, i;
 	u8 val, msec;
-	const struct mpll_config *mpll_cfg = hdmi->drv_data->mpll_cfg;
-	const struct curr_ctrl   *curr_ctr = hdmi->drv_data->cur_ctr;
+	const struct mpll_config *mpll_cfg = hdmi->plat_data->mpll_cfg;
+	const struct curr_ctrl   *curr_ctr = hdmi->plat_data->cur_ctr;
 
 	if (prep)
 		return -EINVAL;
@@ -778,7 +777,7 @@ static int hdmi_phy_configure(struct dw_hdmi *hdmi, unsigned char prep,
 	hdmi_phy_i2c_write(hdmi, 0x01ad, 0x0E);  /* VLEVCTRL */
 	/* REMOVE CLK TERM */
 	hdmi_phy_i2c_write(hdmi, 0x8000, 0x05);  /* CKCALCTRL */
-	if (hdmi->dev_type != RK3288_HDMI) {
+	if (hdmi->dev_type != RK32_HDMI) {
 		dw_hdmi_phy_enable_power(hdmi, 1);
 
 		/* toggle TMDS enable */
@@ -1357,19 +1356,18 @@ static void dw_hdmi_encoder_dpms(struct drm_encoder *encoder, int mode)
 static void dw_hdmi_encoder_prepare(struct drm_encoder *encoder)
 {
 	struct dw_hdmi *hdmi = container_of(encoder, struct dw_hdmi, encoder);
-
 	dw_hdmi_poweroff(hdmi);
 
-	if (hdmi->drv_data->encoder_prepare)
-		hdmi->drv_data->encoder_prepare(hdmi);
+	if (hdmi->plat_data->encoder_prepare)
+		hdmi->plat_data->encoder_prepare(&hdmi->connector, encoder);
 }
 
 static void dw_hdmi_encoder_commit(struct drm_encoder *encoder)
 {
 	struct dw_hdmi *hdmi = container_of(encoder, struct dw_hdmi, encoder);
 
-	if (hdmi->drv_data->set_crtc_mux)
-		hdmi->drv_data->set_crtc_mux(hdmi);
+	if (hdmi->plat_data->set_crtc_mux)
+		hdmi->plat_data->set_crtc_mux(hdmi->priv, encoder);
 
 	dw_hdmi_poweron(hdmi);
 }
@@ -1385,8 +1383,8 @@ static int dw_hdmi_connector_mode_valid(struct drm_connector *connector,
 {
 	struct dw_hdmi *hdmi = container_of(connector, struct dw_hdmi,
 					     connector);
-	if (hdmi->drv_data->mode_valid)
-		return hdmi->drv_data->mode_valid(connector, mode);
+	if (hdmi->plat_data->mode_valid)
+		return hdmi->plat_data->mode_valid(connector, mode);
 	else
 		return MODE_OK;
 }
@@ -1413,6 +1411,7 @@ static struct drm_connector_funcs dw_hdmi_connector_funcs = {
 
 static struct drm_connector_helper_funcs dw_hdmi_connector_helper_funcs = {
 	.get_modes = dw_hdmi_connector_get_modes,
+	.mode_valid = dw_hdmi_connector_mode_valid,
 	.best_encoder = dw_hdmi_connector_best_encoder,
 };
 
@@ -1546,40 +1545,8 @@ static int dw_hdmi_bind(struct device *dev, struct device *master, void *data)
 	if (IS_ERR(hdmi->regs))
 		return PTR_ERR(hdmi->regs);
 
-	hdmi->regmap = syscon_regmap_lookup_by_phandle(np, "gpr");
-	if (IS_ERR(hdmi->regmap))
-		return PTR_ERR(hdmi->regmap);
-
-	hdmi->isfr_clk = devm_clk_get(hdmi->dev, "isfr");
-	if (IS_ERR(hdmi->isfr_clk)) {
-		ret = PTR_ERR(hdmi->isfr_clk);
-		dev_err(hdmi->dev,
-			"Unable to get HDMI isfr clk: %d\n", ret);
-		return ret;
-	}
-
-	ret = clk_prepare_enable(hdmi->isfr_clk);
-	if (ret) {
-		dev_err(hdmi->dev,
-			"Cannot enable HDMI isfr clock: %d\n", ret);
-		return ret;
-	}
-
-	hdmi->iahb_clk = devm_clk_get(hdmi->dev, "iahb");
-	if (IS_ERR(hdmi->iahb_clk)) {
-		ret = PTR_ERR(hdmi->iahb_clk);
-		dev_err(hdmi->dev,
-			"Unable to get HDMI iahb clk: %d\n", ret);
-		goto err_isfr;
-	}
-
-	ret = clk_prepare_enable(hdmi->iahb_clk);
-	if (ret) {
-		dev_err(hdmi->dev,
-			"Cannot enable HDMI iahb clock: %d\n", ret);
-		goto err_isfr;
-	}
-
+	if (hdmi->plat_data->setup)
+		hdmi->priv = hdmi->plat_data->setup(pdev);
 	/* Product and revision IDs */
 	dev_info(dev,
 		 "Detected HDMI controller 0x%x:0x%x:0x%x:0x%x\n",
@@ -1607,11 +1574,11 @@ static int dw_hdmi_bind(struct device *dev, struct device *master, void *data)
 
 	ret = dw_hdmi_fb_registered(hdmi);
 	if (ret)
-		goto err_iahb;
+		return ret;
 
 	ret = dw_hdmi_register(drm, hdmi);
 	if (ret)
-		goto err_iahb;
+		return ret;
 
 	/* Unmute interrupts */
 	hdmi->write(hdmi, ~HDMI_IH_PHY_STAT0_HPD, HDMI_IH_MUTE_PHY_STAT0);
@@ -1619,13 +1586,6 @@ static int dw_hdmi_bind(struct device *dev, struct device *master, void *data)
 	dev_set_drvdata(dev, hdmi);
 
 	return 0;
-
-err_iahb:
-	clk_disable_unprepare(hdmi->iahb_clk);
-err_isfr:
-	clk_disable_unprepare(hdmi->isfr_clk);
-
-	return ret;
 }
 
 static void dw_hdmi_unbind(struct device *dev, struct device *master,
@@ -1637,10 +1597,10 @@ static void dw_hdmi_unbind(struct device *dev, struct device *master,
 	hdmi->write(hdmi, ~0, HDMI_IH_MUTE_PHY_STAT0);
 
 	hdmi->connector.funcs->destroy(&hdmi->connector);
-	hdmi->encoder.funcs->destroy(&hdmi->encoder);
 
-	clk_disable_unprepare(hdmi->iahb_clk);
-	clk_disable_unprepare(hdmi->isfr_clk);
+	hdmi->encoder.funcs->destroy(&hdmi->encoder);
+	if (hdmi->plat_data->exit)
+		hdmi->plat_data->exit(hdmi->priv);
 	i2c_put_adapter(hdmi->ddc);
 }
 
@@ -1661,7 +1621,7 @@ static int dw_hdmi_platform_remove(struct platform_device *pdev)
 }
 
 int dw_hdmi_pltfm_register(struct platform_device *pdev,
-			   const struct dw_hdmi_drv_data *drv_data)
+			   const struct dw_hdmi_plat_data *plat_data)
 {
 	struct dw_hdmi *hdmi;
 
@@ -1669,9 +1629,9 @@ int dw_hdmi_pltfm_register(struct platform_device *pdev,
 	if (!hdmi)
 		return -ENOMEM;
 
-	hdmi->drv_data = drv_data;
+	hdmi->plat_data = plat_data;
 	hdmi->dev = &pdev->dev;
-	hdmi->dev_type = drv_data->dev_type;
+	hdmi->dev_type = plat_data->dev_type;
 	hdmi->sample_rate = 48000;
 	hdmi->ratio = 100;
 

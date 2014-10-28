@@ -24,7 +24,7 @@ enum {
 enum dw_hdmi_devtype {
 	IMX6Q_HDMI,
 	IMX6DL_HDMI,
-	RK3288_HDMI,
+	RK32_HDMI,
 };
 
 struct mpll_config {
@@ -69,11 +69,11 @@ struct dw_hdmi {
 
 	enum dw_hdmi_devtype dev_type;
 	struct device *dev;
-	struct clk *isfr_clk;
-	struct clk *iahb_clk;
 
 	struct hdmi_data_info hdmi_data;
-	const struct dw_hdmi_drv_data *drv_data;
+	const struct dw_hdmi_plat_data *plat_data;
+	void *priv;
+
 	int vic;
 
 	u8 edid[HDMI_EDID_LEN];
@@ -82,7 +82,6 @@ struct dw_hdmi {
 	bool phy_enabled;
 	struct drm_display_mode previous_mode;
 
-	struct regmap *regmap;
 	struct i2c_adapter *ddc;
 	void __iomem *regs;
 
@@ -96,11 +95,14 @@ struct dw_hdmi {
 			      u32 shift, u32 mask);
 };
 
-struct dw_hdmi_drv_data {
-	void (*set_crtc_mux)(struct dw_hdmi *hdmi);
-	void (*encoder_prepare)(struct dw_hdmi *hdmi);
+struct dw_hdmi_plat_data {
+	void * (*setup)(struct platform_device *pdev);
+	void (*exit)(void *priv);
+	void (*set_crtc_mux)(void *priv, struct drm_encoder *encoder);
+	void (*encoder_prepare)(struct drm_connector *connector,
+				struct drm_encoder *encoder);
 	enum drm_mode_status (*mode_valid)(struct drm_connector *connector,
-                                           struct drm_display_mode *mode);
+					   struct drm_display_mode *mode);
 	const struct mpll_config *mpll_cfg;
 	const struct curr_ctrl *cur_ctr;
 	enum dw_hdmi_devtype dev_type;
@@ -108,6 +110,6 @@ struct dw_hdmi_drv_data {
 };
 
 int dw_hdmi_pltfm_register(struct platform_device *pdev,
-			    const struct dw_hdmi_drv_data *drv_data);
+			    const struct dw_hdmi_plat_data *plat_data);
 int dw_hdmi_pltfm_unregister(struct platform_device *pdev);
 #endif /* __IMX_HDMI_H__ */
