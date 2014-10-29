@@ -1282,6 +1282,7 @@ static enum drm_connector_status dw_hdmi_connector_detect(struct drm_connector
 	struct dw_hdmi *hdmi = container_of(connector, struct dw_hdmi,
 					     connector);
 
+printk("%s: %s\n", __func__, hdmi->read(hdmi, HDMI_PHY_STAT0) & HDMI_PHY_HPD ? "connected" : "disconnected\n");
 	return hdmi->read(hdmi, HDMI_PHY_STAT0) & HDMI_PHY_HPD ?
 		connector_status_connected : connector_status_disconnected;
 }
@@ -1293,19 +1294,21 @@ static int dw_hdmi_connector_get_modes(struct drm_connector *connector)
 	struct edid *edid;
 	int ret;
 
+printk("%s: start\n", __func__);
 	if (!hdmi->ddc)
 		return 0;
 
+printk("%s: reading edid\n", __func__);
 	edid = drm_get_edid(connector, hdmi->ddc);
 	if (edid) {
-		dev_dbg(hdmi->dev, "got edid: width[%d] x height[%d]\n",
+		dev_info(hdmi->dev, "got edid: width[%d] x height[%d]\n",
 			edid->width_cm, edid->height_cm);
 
 		drm_mode_connector_update_edid_property(connector, edid);
 		ret = drm_add_edid_modes(connector, edid);
 		kfree(edid);
 	} else {
-		dev_dbg(hdmi->dev, "failed to get edid\n");
+		dev_info(hdmi->dev, "failed to get edid\n");
 	}
 
 	return 0;
@@ -1522,8 +1525,11 @@ static int dw_hdmi_bind(struct device *dev, struct device *master, void *data)
 	ddc_node = of_parse_phandle(np, "ddc-i2c-bus", 0);
 	if (ddc_node) {
 		hdmi->ddc = of_find_i2c_adapter_by_node(ddc_node);
-		if (!hdmi->ddc)
+		if (!hdmi->ddc) {
 			dev_dbg(hdmi->dev, "failed to read ddc node\n");
+			of_node_put(ddc_node);
+			return -EPROBE_DEFER;
+		}
 
 		of_node_put(ddc_node);
 	} else {
