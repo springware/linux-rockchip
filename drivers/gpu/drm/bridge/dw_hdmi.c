@@ -77,6 +77,9 @@ static const u16 csc_coeff_rgb_in_eitu709[3][4] = {
 	{ 0x6756, 0x78ab, 0x2000, 0x0200 }
 };
 
+/*On rockchip platform, no-word access to the hdmi
+ * register will causes an imprecise external abort
+ */
 static inline void hdmi_writel(struct dw_hdmi *hdmi, u32 val, int offset)
 {
 	writel(val, hdmi->regs + (offset << 2));
@@ -777,7 +780,7 @@ static int hdmi_phy_configure(struct dw_hdmi *hdmi, unsigned char prep,
 	hdmi_phy_i2c_write(hdmi, 0x01ad, 0x0E);  /* VLEVCTRL */
 	/* REMOVE CLK TERM */
 	hdmi_phy_i2c_write(hdmi, 0x8000, 0x05);  /* CKCALCTRL */
-	if (hdmi->dev_type != RK32_HDMI) {
+	if (hdmi->dev_type != RK3288_HDMI) {
 		dw_hdmi_phy_enable_power(hdmi, 1);
 
 		/* toggle TMDS enable */

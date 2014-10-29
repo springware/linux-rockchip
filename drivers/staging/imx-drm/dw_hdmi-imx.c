@@ -14,7 +14,7 @@
 
 #include "imx-drm.h"
 
-struct imx_hdmi_priv {
+struct imx_hdmi {
 	struct device *dev;
 	struct clk *isfr_clk;
 	struct clk *iahb_clk;
@@ -66,7 +66,7 @@ static const struct curr_ctrl imx_cur_ctr[] = {
 	}
 };
 
-static int imx_hdmi_parse_dt(struct imx_hdmi_priv *hdmi)
+static int dw_hdmi_parse_dt(struct imx_hdmi *hdmi)
 {
 	struct device_node *np = hdmi->dev->of_node;
 
@@ -91,9 +91,9 @@ static int imx_hdmi_parse_dt(struct imx_hdmi_priv *hdmi)
 	return 0;
 }
 
-static void *imx_hdmi_imx_setup(struct platform_device *pdev)
+static void *dw_hdmi_imx_setup(struct platform_device *pdev)
 {
-	struct imx_hdmi_priv *hdmi;
+	struct imx_hdmi *hdmi;
 	int ret;
 
 	hdmi = devm_kzalloc(&pdev->dev, sizeof(*hdmi), GFP_KERNEL);
@@ -101,7 +101,7 @@ static void *imx_hdmi_imx_setup(struct platform_device *pdev)
 		return ERR_PTR(-ENOMEM);
 	hdmi->dev = &pdev->dev;
 
-	ret = imx_hdmi_parse_dt(hdmi);
+	ret = dw_hdmi_parse_dt(hdmi);
 	if (ret < 0)
 		return ERR_PTR(ret);
 	ret = clk_prepare_enable(hdmi->isfr_clk);
@@ -121,18 +121,18 @@ static void *imx_hdmi_imx_setup(struct platform_device *pdev)
 	return hdmi;
 }
 
-static void imx_hdmi_imx_exit(void *priv)
+static void dw_hdmi_imx_exit(void *priv)
 {
-	struct imx_hdmi_priv *hdmi = (struct imx_hdmi_priv *)priv;
+	struct imx_hdmi *hdmi = (struct imx_hdmi *)priv;
 
 	clk_disable_unprepare(hdmi->isfr_clk);
 
 	clk_disable_unprepare(hdmi->iahb_clk);
 }
 
-static void imx_hdmi_imx_set_crtc_mux(void *priv, struct drm_encoder *encoder)
+static void dw_hdmi_imx_set_crtc_mux(void *priv, struct drm_encoder *encoder)
 {
-	struct imx_hdmi_priv *hdmi = (struct imx_hdmi_priv *)priv;
+	struct imx_hdmi *hdmi = (struct imx_hdmi *)priv;
 	int mux = imx_drm_encoder_get_mux_id(hdmi->dev->of_node, encoder);
 
 	regmap_update_bits(hdmi->regmap, IOMUXC_GPR3,
@@ -140,33 +140,33 @@ static void imx_hdmi_imx_set_crtc_mux(void *priv, struct drm_encoder *encoder)
 			   mux << IMX6Q_GPR3_HDMI_MUX_CTL_SHIFT);
 }
 
-static void imx_hdmi_imx_encoder_prepare(struct drm_connector *connector,
+static void dw_hdmi_imx_encoder_prepare(struct drm_connector *connector,
 					struct drm_encoder *encoder)
 {
 	imx_drm_panel_format(encoder, V4L2_PIX_FMT_RGB24);
 }
 
-static struct imx_hdmi_plat_data imx6q_hdmi_drv_data = {
-	.setup			= imx_hdmi_imx_setup,
-	.exit			= imx_hdmi_imx_exit,
-	.set_crtc_mux		= imx_hdmi_imx_set_crtc_mux,
-	.encoder_prepare	= imx_hdmi_imx_encoder_prepare,
+static struct dw_hdmi_plat_data imx6q_hdmi_drv_data = {
+	.setup			= dw_hdmi_imx_setup,
+	.exit			= dw_hdmi_imx_exit,
+	.set_crtc_mux		= dw_hdmi_imx_set_crtc_mux,
+	.encoder_prepare	= dw_hdmi_imx_encoder_prepare,
 	.mpll_cfg		= imx_mpll_cfg,
 	.cur_ctr		= imx_cur_ctr,
 	.dev_type		= IMX6Q_HDMI,
 };
 
-static struct imx_hdmi_plat_data imx6dl_hdmi_drv_data = {
-	.setup			= imx_hdmi_imx_setup,
-	.exit			= imx_hdmi_imx_exit,
-	.set_crtc_mux		= imx_hdmi_imx_set_crtc_mux,
-	.encoder_prepare	= imx_hdmi_imx_encoder_prepare,
+static struct dw_hdmi_plat_data imx6dl_hdmi_drv_data = {
+	.setup			= dw_hdmi_imx_setup,
+	.exit			= dw_hdmi_imx_exit,
+	.set_crtc_mux		= dw_hdmi_imx_set_crtc_mux,
+	.encoder_prepare	= dw_hdmi_imx_encoder_prepare,
 	.mpll_cfg		= imx_mpll_cfg,
 	.cur_ctr		= imx_cur_ctr,
 	.dev_type		= IMX6DL_HDMI,
 };
 
-static const struct of_device_id imx_hdmi_imx_ids[] = {
+static const struct of_device_id dw_hdmi_imx_ids[] = {
 	{ .compatible = "fsl,imx6q-hdmi",
 	  .data = &imx6q_hdmi_drv_data
 	}, {
@@ -175,38 +175,38 @@ static const struct of_device_id imx_hdmi_imx_ids[] = {
 	},
 	{},
 };
-MODULE_DEVICE_TABLE(of, imx_hdmi_imx_dt_ids);
+MODULE_DEVICE_TABLE(of, dw_hdmi_imx_dt_ids);
 
-static int imx_hdmi_imx_probe(struct platform_device *pdev)
+static int dw_hdmi_imx_probe(struct platform_device *pdev)
 {
-	const struct imx_hdmi_plat_data *plat_data;
+	const struct dw_hdmi_plat_data *plat_data;
 	const struct of_device_id *match;
 
 	if (!pdev->dev.of_node)
 		return -ENODEV;
 
-	match = of_match_node(imx_hdmi_imx_ids, pdev->dev.of_node);
+	match = of_match_node(dw_hdmi_imx_ids, pdev->dev.of_node);
 	plat_data = match->data;
 
-	return imx_hdmi_pltfm_register(pdev, plat_data);
+	return dw_hdmi_pltfm_register(pdev, plat_data);
 }
 
-static int imx_hdmi_imx_remove(struct platform_device *pdev)
+static int dw_hdmi_imx_remove(struct platform_device *pdev)
 {
-	return imx_hdmi_pltfm_unregister(pdev);
+	return dw_hdmi_pltfm_unregister(pdev);
 }
 
-static struct platform_driver imx_hdmi_imx_pltfm_driver = {
-	.probe  = imx_hdmi_imx_probe,
-	.remove = imx_hdmi_imx_remove,
+static struct platform_driver dw_hdmi_imx_pltfm_driver = {
+	.probe  = dw_hdmi_imx_probe,
+	.remove = dw_hdmi_imx_remove,
 	.driver = {
 		.name = "dwhdmi-imx",
 		.owner = THIS_MODULE,
-		.of_match_table = imx_hdmi_imx_ids,
+		.of_match_table = dw_hdmi_imx_ids,
 	},
 };
 
-module_platform_driver(imx_hdmi_imx_pltfm_driver);
+module_platform_driver(dw_hdmi_imx_pltfm_driver);
 
 MODULE_AUTHOR("Andy Yan <andy.yan@rock-chips.com>");
 MODULE_DESCRIPTION("IMX6 Specific DW-HDMI Driver Extension");

@@ -24,7 +24,7 @@ enum {
 enum dw_hdmi_devtype {
 	IMX6Q_HDMI,
 	IMX6DL_HDMI,
-	RK32_HDMI,
+	RK3288_HDMI,
 };
 
 struct mpll_config {
