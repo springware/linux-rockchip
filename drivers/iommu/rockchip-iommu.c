@@ -368,7 +368,7 @@ static int rk_iommu_disable_paging(struct rk_iommu *iommu)
 
 	ret = rk_wait_for(!rk_iommu_is_paging_enabled(iommu), 1);
 	if (ret)
-		dev_err(iommu->dev, "Disable paging request timed out, status: #%08x\n",
+		dev_err(iommu->dev, "Disable paging request timed out, status: %#08x\n",
 			rk_iommu_read(iommu, RK_MMU_STATUS));
 
 	return ret;
@@ -439,7 +439,7 @@ static void log_iova(struct rk_iommu *iommu, dma_addr_t iova)
 	page_flags = pte & RK_PTE_PAGE_FLAGS_MASK;
 
 print_it:
-	dev_err(iommu->dev, "iova = %pad: dte_index: 0x%03x pte_index: 0x%03x page_offset: 0x%03x\n",
+	dev_err(iommu->dev, "iova = %pad: dte_index: %#03x pte_index: %#03x page_offset: %#03x\n",
 		&iova, dte_index, pte_index, page_offset);
 	dev_err(iommu->dev, "mmu_dte_addr: %pa dte@%pa: %#08x valid: %u pte@%pa: %#08x valid: %u page@%pa flags: %#03x\n",
 		&mmu_dte_addr_phys, &dte_addr_phys, dte,
@@ -630,7 +630,7 @@ unwind:
 
 	iova += pte_count * SPAGE_SIZE;
 	page_phys = rk_pte_page_address(pte_addr[pte_count]);
-	pr_err("iova: %pad already mapped to %pa cannot remap to phys: %pa prot:%#x\n",
+	pr_err("iova: %pad already mapped to %pa cannot remap to phys: %pa prot: %#x\n",
 	       &iova, &page_phys, &paddr, prot);
 
 	return -EADDRINUSE;
