@@ -16,5 +16,6 @@
 #define _ROCKCHIP_DRM_FBDEV_H
 
 int rockchip_drm_fbdev_init(struct drm_device *dev);
+void rockchip_drm_fbdev_fini(struct drm_device *dev);
 
 #endif /* _ROCKCHIP_DRM_FBDEV_H */
