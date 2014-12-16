@@ -1467,6 +1467,11 @@ static void clk_change_rate(struct clk *clk)
 	else if (clk->parent)
 		best_parent_rate = clk->parent->rate;
 
+	if (clk->flags & CLK_SET_RATE_ENABLED) {
+		__clk_prepare(clk);
+		clk_enable(clk);
+	}
+
 	if (clk->new_parent && clk->new_parent != clk->parent) {
 		old_parent = __clk_set_parent_before(clk, clk->new_parent);
 
@@ -1486,6 +1491,11 @@ static void clk_change_rate(struct clk *clk)
 		clk->ops->set_rate(clk->hw, clk->new_rate, best_parent_rate);
 
 	clk->rate = clk_recalc(clk, best_parent_rate);
+
+	if (clk->flags & CLK_SET_RATE_ENABLED) {
+		clk_disable(clk);
+		__clk_unprepare(clk);
+	}
 
 	if (clk->notifier_count && old_rate != clk->rate)
 		__clk_notify(clk, POST_RATE_CHANGE, old_rate, clk->rate);
