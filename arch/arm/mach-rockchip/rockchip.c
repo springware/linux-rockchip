@@ -26,6 +26,8 @@
 
 #include <linux/clocksource.h>
 #include <linux/clk-provider.h>
+#include <linux/mfd/syscon.h>
+#include <linux/regmap.h>
 
 static void __init rockchip_timer_init(void)
 {
@@ -33,6 +35,7 @@ static void __init rockchip_timer_init(void)
 
 	if (of_machine_is_compatible("rockchip,rk3288")) {
 		void __iomem *reg_base;
+		struct regmap *grf;
 
 		/* enable timer7 for core */
 		pr_warn("rockchip: enabling rk3288-timer7 workaround\n");
@@ -49,6 +52,14 @@ static void __init rockchip_timer_init(void)
 		} else {
 			pr_err("rockchip: could not map timer7 registers\n");
 		}
+
+		/* disable auto jtag/sdmmc switching making sdmmc unreliable */
+		pr_warn("rockchip: enabling jtag/sdmmc workaround\n");
+		grf = syscon_regmap_lookup_by_compatible("rockchip,rk3288-grf");
+		if (!IS_ERR(grf))
+			regmap_write(grf, 0x244, 0x10000000);
+		else
+			pr_err("rockchip: could not get grf syscon\n");
 	}
 
 	clocksource_of_init();
