@@ -14,6 +14,7 @@
 
 #include <drm/drm.h>
 #include <drm/drmP.h>
+#include <drm/drm_gem.h>
 #include <drm/drm_vma_manager.h>
 
 #include <linux/dma-attrs.h>
