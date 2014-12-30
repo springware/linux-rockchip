@@ -114,22 +114,37 @@ static int fan53555_set_suspend_voltage(struct regulator_dev *rdev, int uV)
 	return 0;
 }
 
-static int fan53555_set_mode(struct regulator_dev *rdev, unsigned int mode)
+static int fan53555_set_mode_common(struct fan53555_device_info *di,
+				    unsigned int mode, unsigned int reg)
 {
-	struct fan53555_device_info *di = rdev_get_drvdata(rdev);
-
 	switch (mode) {
 	case REGULATOR_MODE_FAST:
-		regmap_update_bits(di->regmap, di->vol_reg,
+		regmap_update_bits(di->regmap, reg,
 				VSEL_MODE, VSEL_MODE);
 		break;
 	case REGULATOR_MODE_NORMAL:
-		regmap_update_bits(di->regmap, di->vol_reg, VSEL_MODE, 0);
+		regmap_update_bits(di->regmap, reg, VSEL_MODE, 0);
 		break;
 	default:
 		return -EINVAL;
 	}
 	return 0;
+}
+
+static inline int fan53555_set_suspend_mode(struct regulator_dev *rdev,
+					    unsigned int mode)
+{
+	struct fan53555_device_info *di = rdev_get_drvdata(rdev);
+
+	return fan53555_set_mode_common(di, mode, di->sleep_reg);
+}
+
+static inline int fan53555_set_mode(struct regulator_dev *rdev,
+				    unsigned int mode)
+{
+	struct fan53555_device_info *di = rdev_get_drvdata(rdev);
+
+	return fan53555_set_mode_common(di, mode, di->vol_reg);
 }
 
 static unsigned int fan53555_get_mode(struct regulator_dev *rdev)
@@ -185,6 +200,7 @@ static struct regulator_ops fan53555_regulator_ops = {
 	.map_voltage = regulator_map_voltage_linear,
 	.list_voltage = regulator_list_voltage_linear,
 	.set_suspend_voltage = fan53555_set_suspend_voltage,
+	.set_suspend_mode = fan53555_set_suspend_mode,
 	.enable = regulator_enable_regmap,
 	.disable = regulator_disable_regmap,
 	.is_enabled = regulator_is_enabled_regmap,
