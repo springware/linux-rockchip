@@ -114,6 +114,21 @@ static int fan53555_set_suspend_voltage(struct regulator_dev *rdev, int uV)
 	return 0;
 }
 
+static int fan53555_suspend_enable(struct regulator_dev *rdev)
+{
+	struct fan53555_device_info *di = rdev_get_drvdata(rdev);
+
+	return regmap_update_bits(di->regmap, di->sleep_reg, VSEL_BUCK_EN,
+							     VSEL_BUCK_EN);
+}
+
+static int fan53555_suspend_disable(struct regulator_dev *rdev)
+{
+	struct fan53555_device_info *di = rdev_get_drvdata(rdev);
+
+	return regmap_update_bits(di->regmap, di->sleep_reg, VSEL_BUCK_EN, 0);
+}
+
 static int fan53555_set_mode_common(struct fan53555_device_info *di,
 				    unsigned int mode, unsigned int reg)
 {
@@ -200,6 +215,8 @@ static struct regulator_ops fan53555_regulator_ops = {
 	.map_voltage = regulator_map_voltage_linear,
 	.list_voltage = regulator_list_voltage_linear,
 	.set_suspend_voltage = fan53555_set_suspend_voltage,
+	.set_suspend_enable = fan53555_suspend_enable,
+	.set_suspend_disable = fan53555_suspend_disable,
 	.set_suspend_mode = fan53555_set_suspend_mode,
 	.enable = regulator_enable_regmap,
 	.disable = regulator_disable_regmap,
