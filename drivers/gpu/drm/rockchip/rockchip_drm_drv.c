@@ -54,6 +54,7 @@ int rockchip_drm_dma_attach_device(struct drm_device *drm_dev,
 
 	return arm_iommu_attach_device(dev, mapping);
 }
+EXPORT_SYMBOL_GPL(rockchip_drm_dma_attach_device);
 
 void rockchip_drm_dma_detach_device(struct drm_device *drm_dev,
 				    struct device *dev)
