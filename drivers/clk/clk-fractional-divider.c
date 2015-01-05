@@ -81,6 +81,7 @@ static int clk_fd_set_rate(struct clk_hw *hw, unsigned long rate,
 	val = clk_readl(fd->reg);
 	val &= ~(fd->mmask | fd->nmask);
 	val |= (m << fd->mshift) | (n << fd->nshift);
+printk("%s: %s write 0x%x 0x%x\n", __func__, __clk_get_name(hw->clk), fd->reg, val);
 	clk_writel(val, fd->reg);
 
 	if (fd->lock)

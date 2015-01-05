@@ -66,6 +66,7 @@ static void clk_gate_endisable(struct clk_hw *hw, int enable)
 			reg &= ~BIT(gate->bit_idx);
 	}
 
+printk("%s: %s write 0x%x 0x%x\n", __func__, __clk_get_name(hw->clk), gate->reg, reg);
 	clk_writel(reg, gate->reg);
 
 	if (gate->lock)

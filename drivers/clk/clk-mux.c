@@ -93,6 +93,7 @@ static int clk_mux_set_parent(struct clk_hw *hw, u8 index)
 		val &= ~(mux->mask << mux->shift);
 	}
 	val |= index << mux->shift;
+printk("%s: %s write 0x%x 0x%x\n", __func__, __clk_get_name(hw->clk), mux->reg, val);
 	clk_writel(val, mux->reg);
 
 	if (mux->lock)
