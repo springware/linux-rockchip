@@ -17,10 +17,11 @@ config DRM_ROCKCHIP
 	  IP found on the SoC.
 
 config ROCKCHIP_DW_HDMI
-	bool "Rockchip specific extensions for Synopsys DW HDMI"
-	depends on DRM_ROCKCHIP
-	select DRM_DW_HDMI
-	help
-          This selects support for Rockchip SoC specific extensions
-	  for the Synopsys DesignWare HDMI driver. Select this option
-          for RK3288 based SoC.
+        tristate "Rockchip specific extensions for Synopsys DW HDMI"
+        depends on DRM_ROCKCHIP
+        select DRM_DW_HDMI
+        help
+	  This selects support for Rockchip SoC specific extensions
+	  for the Synopsys DesignWare HDMI driver. If you want to
+	  enable HDMI on RK3288 based SoC, you should selet this
+	  option.
