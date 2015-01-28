@@ -67,23 +67,71 @@ static long clk_composite_determine_rate(struct clk_hw *hw, unsigned long rate,
 	struct clk_hw *rate_hw = composite->rate_hw;
 	struct clk_hw *mux_hw = composite->mux_hw;
 	struct clk *parent;
+	struct clk_hw *parent_p;
 	unsigned long parent_rate;
 	long tmp_rate, best_rate = 0;
 	unsigned long rate_diff;
 	unsigned long best_rate_diff = ULONG_MAX;
+	bool no_reparent = __clk_get_flags(hw->clk) & CLK_SET_RATE_NO_REPARENT;
 	int i;
 
-	if (rate_hw && rate_ops && rate_ops->determine_rate) {
+	if (rate_hw && rate_ops && rate_ops->determine_rate &&
+	    (!mux_hw || !mux_ops || !mux_ops->set_parent || no_reparent)) {
 		__clk_hw_set_clk(rate_hw, hw);
 		return rate_ops->determine_rate(rate_hw, rate, min_rate,
 						max_rate,
 						best_parent_rate,
 						best_parent_p);
-	} else if (rate_hw && rate_ops && rate_ops->round_rate &&
+	} else if (rate_hw && rate_ops && rate_ops->determine_rate &&
 		   mux_hw && mux_ops && mux_ops->set_parent) {
+		__clk_hw_set_clk(rate_hw, hw);
 		*best_parent_p = NULL;
 
-		if (__clk_get_flags(hw->clk) & CLK_SET_RATE_NO_REPARENT) {
+		for (i = 0; i < __clk_get_num_parents(mux_hw->clk); i++) {
+			parent = clk_get_parent_by_index(mux_hw->clk, i);
+			if (!parent)
+				continue;
+
+			parent_rate = __clk_get_rate(parent);
+			parent_p = __clk_get_hw(parent);
+
+			tmp_rate = rate_ops->determine_rate(rate_hw,
+							rate, min_rate,
+							max_rate, &parent_rate,
+							&parent_p);
+			if (tmp_rate < 0)
+				continue;
+
+			/*
+			 * If the determine_rate callback did parent-handling
+			 * and selected a different parent on its own, use it
+			 */
+			if (parent_p != __clk_get_hw(parent)) {
+				*best_parent_p = parent_p;
+				*best_parent_rate = parent_rate;
+				return tmp_rate;
+			}
+
+			rate_diff = abs(rate - tmp_rate);
+
+			if (!rate_diff || !*best_parent_p
+				       || best_rate_diff > rate_diff) {
+				*best_parent_p = __clk_get_hw(parent);
+				*best_parent_rate = parent_rate;
+				best_rate_diff = rate_diff;
+				best_rate = tmp_rate;
+			}
+
+			if (!rate_diff)
+				return rate;
+		}
+
+		return best_rate;
+	} else if (rate_hw && rate_ops && rate_ops->round_rate &&
+		   mux_hw && mux_ops && mux_ops->set_parent) {
+		__clk_hw_set_clk(rate_hw, hw);
+
+		if (no_reparent) {
 			parent = clk_get_parent(mux_hw->clk);
 			*best_parent_p = __clk_get_hw(parent);
 			*best_parent_rate = __clk_get_rate(parent);
@@ -92,6 +140,12 @@ static long clk_composite_determine_rate(struct clk_hw *hw, unsigned long rate,
 						    best_parent_rate);
 		}
 
+		/*
+		 * Using round_rate with multiple parents may produce strange
+		 * results, when the underlying rate_ops does reading/rounding
+		 * of its parent rate itself in the CLK_SET_RATE_PARENT case
+		 * [for example by using __clk_round_rate(__clk_get_parent()) ]
+		 */
 		for (i = 0; i < __clk_get_num_parents(mux_hw->clk); i++) {
 			parent = clk_get_parent_by_index(mux_hw->clk, i);
 			if (!parent)
