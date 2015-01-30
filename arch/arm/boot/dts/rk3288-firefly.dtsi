@@ -159,6 +159,27 @@
 		regulator-always-on;
 		vin-supply = <&vcc_5v>;
 	};
+
+	sda7123: vga-encoder {
+		compatible = "adi,adv7123";
+		ddc-i2c-bus = <&i2c4>;
+		enable-gpio = <&gpio0 17 GPIO_ACTIVE_HIGH>;
+		rockchip,rgb-bridge = <&lvds>;
+		vaa-supply = <&vcc_io>;
+
+		vga_in: port {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			vga_in_vopb: endpoint@0 {
+				reg = <0>;
+				remote-endpoint = <&vopb_out_vga>;
+			};
+			vga_in_vopl: endpoint@1 {
+				reg = <1>;
+				remote-endpoint = <&vopl_out_vga>;
+			};
+		};
+	};
 };
 
 &cpu0 {
@@ -331,6 +352,16 @@
 	status = "okay";
 };
 
+&lvds {
+	avdd1v0-supply = <&vdd10_lcd>;
+	avdd1v8-supply = <&vcc18_lcd>;
+	avdd3v3-supply = <&vcca_33>;
+	rockchip,data-mapping = "jeida";
+	rockchip,data-width = <24>;
+	rockchip,output = "rgb";
+	status = "okay";
+};
+
 &pinctrl {
 	pcfg_output_high: pcfg-output-high {
 		output-high;
@@ -477,8 +508,22 @@
 	status = "okay";
 };
 
+&vopb_out {
+	vopb_out_vga: endpoint@9 {
+		reg = <9>;
+		remote-endpoint = <&vga_in_vopb>;
+	};
+};
+
 &vopl {
 	status = "okay";
+};
+
+&vopl_out {
+	vopl_out_vga: endpoint@9 {
+		reg = <9>;
+		remote-endpoint = <&vga_in_vopl>;
+	};
 };
 
 &vopl_mmu {
