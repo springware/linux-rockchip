@@ -149,6 +149,14 @@
 		clock-frequency = <24000000>;
 	};
 
+	timer: timer@ff810000 {
+		compatible = "rockchip,rk3288-timer";
+		reg = <0xff810000 0x20>;
+		interrupts = <GIC_SPI 72 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&xin24m>, <&cru PCLK_TIMER>;
+		clock-names = "timer", "pclk";
+	};
+
 	display-subsystem {
 		compatible = "rockchip,display-subsystem";
 		ports = <&vopl_out>, <&vopb_out>;
@@ -156,6 +164,7 @@
 
 	sdmmc: dwmmc@ff0c0000 {
 		compatible = "rockchip,rk3288-dw-mshc";
+		clock-freq-min-max = <400000 150000000>;
 		clocks = <&cru HCLK_SDMMC>, <&cru SCLK_SDMMC>;
 		clock-names = "biu", "ciu";
 		fifo-depth = <0x100>;
@@ -166,6 +175,7 @@
 
 	sdio0: dwmmc@ff0d0000 {
 		compatible = "rockchip,rk3288-dw-mshc";
+		clock-freq-min-max = <400000 150000000>;
 		clocks = <&cru HCLK_SDIO0>, <&cru SCLK_SDIO0>;
 		clock-names = "biu", "ciu";
 		fifo-depth = <0x100>;
@@ -176,6 +186,7 @@
 
 	sdio1: dwmmc@ff0e0000 {
 		compatible = "rockchip,rk3288-dw-mshc";
+		clock-freq-min-max = <400000 150000000>;
 		clocks = <&cru HCLK_SDIO1>, <&cru SCLK_SDIO1>;
 		clock-names = "biu", "ciu";
 		fifo-depth = <0x100>;
@@ -186,6 +197,7 @@
 
 	emmc: dwmmc@ff0f0000 {
 		compatible = "rockchip,rk3288-dw-mshc";
+		clock-freq-min-max = <400000 150000000>;
 		clocks = <&cru HCLK_EMMC>, <&cru SCLK_EMMC>;
 		clock-names = "biu", "ciu";
 		fifo-depth = <0x100>;
@@ -524,9 +536,9 @@
 		};
 	};
 
-	pmu_intmem@ff720000 {
-		compatible = "mmio-sram";
-		reg = <0xff720000 0x4000>;
+	sram@ff720000 {
+		compatible = "rockchip,rk3288-pmu-sram", "mmio-sram";
+		reg = <0xff720000 0x1000>;
 	};
 
 	pmu: power-management@ff730000 {
@@ -599,10 +611,7 @@
 		vopb_out: port {
 			#address-cells = <1>;
 			#size-cells = <0>;
-/*			vopb_out_edp: endpoint@0 {
-				reg = <0>;
-				remote-endpoint = <&edp_in_vopb>;
-			}; */
+
 			vopb_out_hdmi: endpoint@0 {
 				reg = <0>;
 				remote-endpoint = <&hdmi_in_vopb>;
@@ -633,10 +642,7 @@
 		vopl_out: port {
 			#address-cells = <1>;
 			#size-cells = <0>;
-/*			vopl_out_edp: endpoint@0 {
-				reg = <0>;
-				remote-endpoint = <&edp_in_vopl>;
-			}; */
+
 			vopl_out_hdmi: endpoint@0 {
 				reg = <0>;
 				remote-endpoint = <&hdmi_in_vopl>;
@@ -653,32 +659,6 @@
 		status = "disabled";
 	};
 
-/*	edp: edp@ff970000 {
-		compatible = "rockchip,rk3288-edp";
-		reg = <0xff970000 0x4000>;
-		interrupts = <GIC_SPI 98 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&cru SCLK_EDP>, <&cru SCLK_EDP_24M>, <&cru PCLK_EDP_CTRL>;
-		rockchip,grf = <&grf>;
-		clock-names = "clk_edp", "clk_edp_24m", "pclk_edp";
-		resets = <&cru 111>;
-		reset-names = "edp";
-		status = "disabled";
-		ports {
-			edp_in: port {
-				#address-cells = <1>;
-				#size-cells = <0>;
-				edp_in_vopb: endpoint@0 {
-					reg = <0>;
-					remote-endpoint = <&vopb_out_edp>;
-				};
-				edp_in_vopl: endpoint@1 {
-					reg = <1>;
-					remote-endpoint = <&vopl_out_edp>;
-				};
-			};
-		};
-	};*/
-
 	hdmi: hdmi@ff980000 {
 		compatible = "rockchip,rk3288-dw-hdmi";
 		reg = <0xff980000 0x20000>;
@@ -687,8 +667,9 @@
 		rockchip,grf = <&grf>;
 		interrupts = <GIC_SPI 103 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&cru  PCLK_HDMI_CTRL>, <&cru SCLK_HDMI_HDCP>;
-		clock-names = "clk", "hdcp_clk";
+		clock-names = "iahb", "isfr";
 		status = "disabled";
+
 		ports {
 			hdmi_in: port {
 				#address-cells = <1>;
@@ -858,6 +839,24 @@
 		pcfg_pull_none_12ma: pcfg-pull-none-12ma {
 			bias-disable;
 			drive-strength = <12>;
+		};
+
+		sleep {
+			global_pwroff: global-pwroff {
+				rockchip,pins = <0 0 RK_FUNC_1 &pcfg_pull_none>;
+			};
+
+			ddrio_pwroff: ddrio-pwroff {
+				rockchip,pins = <0 1 RK_FUNC_1 &pcfg_pull_none>;
+			};
+
+			ddr0_retention: ddr0-retention {
+				rockchip,pins = <0 2 RK_FUNC_1 &pcfg_pull_up>;
+			};
+
+			ddr1_retention: ddr1-retention {
+				rockchip,pins = <0 3 RK_FUNC_1 &pcfg_pull_up>;
+			};
 		};
 
 		i2c0 {
