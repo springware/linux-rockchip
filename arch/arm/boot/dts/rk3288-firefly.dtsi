@@ -95,6 +95,27 @@
 		};
 	};
 
+	sda7123: vga-encoder {
+		compatible = "adi,adv7123";
+		ddc-i2c-bus = <&i2c4>;
+		enable-gpio = <&gpio0 17 GPIO_ACTIVE_HIGH>;
+		rockchip,rgb-bridge = <&lvds>;
+		vaa-supply = <&vcc_io>;
+
+		vga_in: port {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			vga_in_vopb: endpoint@0 {
+				reg = <0>;
+				remote-endpoint = <&vopb_out_vga>;
+			};
+			vga_in_vopl: endpoint@1 {
+				reg = <1>;
+				remote-endpoint = <&vopl_out_vga>;
+			};
+		};
+	};
+
 	vcc_sys: vsys-regulator {
 		compatible = "regulator-fixed";
 		regulator-name = "vcc_sys";
@@ -158,27 +179,6 @@
 		regulator-max-microvolt = <5000000>;
 		regulator-always-on;
 		vin-supply = <&vcc_5v>;
-	};
-
-	sda7123: vga-encoder {
-		compatible = "adi,adv7123";
-		ddc-i2c-bus = <&i2c4>;
-		enable-gpio = <&gpio0 17 GPIO_ACTIVE_HIGH>;
-		rockchip,rgb-bridge = <&lvds>;
-		vaa-supply = <&vcc_io>;
-
-		vga_in: port {
-			#address-cells = <1>;
-			#size-cells = <0>;
-			vga_in_vopb: endpoint@0 {
-				reg = <0>;
-				remote-endpoint = <&vopb_out_vga>;
-			};
-			vga_in_vopl: endpoint@1 {
-				reg = <1>;
-				remote-endpoint = <&vopl_out_vga>;
-			};
-		};
 	};
 };
 
