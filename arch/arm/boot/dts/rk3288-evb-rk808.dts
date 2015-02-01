@@ -28,6 +28,10 @@
 	cpu0-supply = <&vdd_cpu>;
 };
 
+&gpu {
+	vdd-supply = <&vdd_gpu>;
+};
+
 &i2c0 {
 	clock-frequency = <400000>;
 
