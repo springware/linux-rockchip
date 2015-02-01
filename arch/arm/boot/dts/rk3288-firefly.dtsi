@@ -159,6 +159,27 @@
 		regulator-always-on;
 		vin-supply = <&vcc_5v>;
 	};
+
+	sda7123: vga-encoder {
+		compatible = "adi,adv7123";
+		ddc-i2c-bus = <&i2c4>;
+		enable-gpio = <&gpio0 17 GPIO_ACTIVE_HIGH>;
+		rockchip,rgb-bridge = <&lvds>;
+		vaa-supply = <&vcc_io>;
+
+		vga_in: port {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			vga_in_vopb: endpoint@0 {
+				reg = <0>;
+				remote-endpoint = <&vopb_out_vga>;
+			};
+			vga_in_vopl: endpoint@1 {
+				reg = <1>;
+				remote-endpoint = <&vopl_out_vga>;
+			};
+		};
+	};
 };
 
 &cpu0 {
@@ -176,6 +197,11 @@
 	pinctrl-0 = <&emmc_clk>, <&emmc_cmd>, <&emmc_pwr>, <&emmc_bus8>;
 	vmmc-supply = <&vcc_io>;
 	vqmmc-supply = <&vcc_flash>;
+	status = "okay";
+};
+
+&hdmi {
+	ddc-i2c-bus = <&i2c5>;
 	status = "okay";
 };
 
@@ -265,6 +291,7 @@
 				regulator-name = "vdd10_lcd";
 				regulator-min-microvolt = <1000000>;
 				regulator-max-microvolt = <1000000>;
+				regulator-always-on;
 			};
 
 			vcca_18: REG7 {
@@ -303,6 +330,7 @@
 				regulator-name = "vcc18_lcd";
 				regulator-min-microvolt = <1800000>;
 				regulator-max-microvolt = <1800000>;
+				regulator-always-on;
 			};
 		};
 	};
@@ -321,6 +349,16 @@
 };
 
 &i2c5 {
+	status = "okay";
+};
+
+&lvds {
+	avdd1v0-supply = <&vdd10_lcd>;
+	avdd1v8-supply = <&vcc18_lcd>;
+	avdd3v3-supply = <&vcca_33>;
+	rockchip,data-mapping = "jeida";
+	rockchip,data-width = <24>;
+	rockchip,output = "rgb";
 	status = "okay";
 };
 
@@ -459,6 +497,36 @@
 };
 
 &usb_otg {
+	status = "okay";
+};
+
+&vopb {
+	status = "okay";
+};
+
+&vopb_mmu {
+	status = "okay";
+};
+
+&vopb_out {
+	vopb_out_vga: endpoint@9 {
+		reg = <9>;
+		remote-endpoint = <&vga_in_vopb>;
+	};
+};
+
+&vopl {
+	status = "okay";
+};
+
+&vopl_out {
+	vopl_out_vga: endpoint@9 {
+		reg = <9>;
+		remote-endpoint = <&vga_in_vopl>;
+	};
+};
+
+&vopl_mmu {
 	status = "okay";
 };
 

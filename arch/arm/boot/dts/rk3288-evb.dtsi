@@ -108,6 +108,8 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&eth_phy_pwr>;
 		regulator-name = "vcc_phy";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
 		regulator-always-on;
 		regulator-boot-on;
 	};
@@ -125,6 +127,11 @@
 	status = "okay";
 };
 
+&hdmi {
+	ddc-i2c-bus = <&i2c5>;
+	status = "okay";
+};
+
 &sdmmc {
 	bus-width = <4>;
 	cap-mmc-highspeed;
@@ -138,6 +145,10 @@
 };
 
 &i2c0 {
+	status = "okay";
+};
+
+&i2c5 {
 	status = "okay";
 };
 
@@ -249,10 +260,6 @@
 	status = "okay";
 };
 
-&i2c5 {
-	status = "okay";
-};
-
 &vopb {
 	status = "okay";
 };
@@ -266,9 +273,5 @@
 };
 
 &vopl_mmu {
-	status = "okay";
-};
-
-&hdmi {
 	status = "okay";
 };
