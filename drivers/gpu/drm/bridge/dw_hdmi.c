@@ -17,6 +17,7 @@
 #include <linux/clk.h>
 #include <linux/hdmi.h>
 #include <linux/of_device.h>
+#include <linux/regulator/consumer.h>
 
 #include <drm/drm_of.h>
 #include <drm/drmP.h>
@@ -113,6 +114,9 @@ struct dw_hdmi {
 
 	struct hdmi_data_info hdmi_data;
 	const struct dw_hdmi_plat_data *plat_data;
+
+	struct regulator_bulk_data *supplies;
+	int nsupplies;
 
 	int vic;
 
@@ -879,6 +883,12 @@ static int dw_hdmi_phy_init(struct dw_hdmi *hdmi)
 	int i, ret;
 	bool cscon = false;
 
+	if (hdmi->nsupplies > 0) {
+		ret = regulator_bulk_enable(hdmi->nsupplies, hdmi->supplies);
+		if (ret)
+			return ret;
+	}
+
 	/*check csc whether needed activated in HDMI mode */
 	cscon = (is_color_space_conversion(hdmi) &&
 			!hdmi->hdmi_data.video_mode.mdvi);
@@ -1104,6 +1114,9 @@ static void dw_hdmi_phy_disable(struct dw_hdmi *hdmi)
 
 	dw_hdmi_phy_enable_tmds(hdmi, 0);
 	dw_hdmi_phy_enable_power(hdmi, 0);
+
+	if (hdmi->nsupplies > 0)
+		regulator_bulk_disable(hdmi->nsupplies, hdmi->supplies);
 
 	hdmi->phy_enabled = false;
 }
@@ -1549,7 +1562,8 @@ static int dw_hdmi_register(struct drm_device *drm, struct dw_hdmi *hdmi)
 int dw_hdmi_bind(struct device *dev, struct device *master,
 		 void *data, struct drm_encoder *encoder,
 		 struct resource *iores, int irq,
-		 const struct dw_hdmi_plat_data *plat_data)
+		 const struct dw_hdmi_plat_data *plat_data,
+		 struct regulator_bulk_data *supplies, int nsupplies)
 {
 	struct drm_device *drm = data;
 	struct device_node *np = dev->of_node;
@@ -1627,6 +1641,15 @@ int dw_hdmi_bind(struct device *dev, struct device *master,
 		dev_err(hdmi->dev, "Cannot enable HDMI iahb clock: %d\n", ret);
 		goto err_isfr;
 	}
+
+	if (nsupplies > 0) {
+		ret = devm_regulator_bulk_get(hdmi->dev, nsupplies, supplies);
+		if (ret)
+			nsupplies = 0;
+	}
+
+	hdmi->supplies = supplies;
+	hdmi->nsupplies = nsupplies;
 
 	/* Product and revision IDs */
 	dev_info(dev,

@@ -11,6 +11,7 @@
 #include <linux/platform_device.h>
 #include <linux/mfd/syscon.h>
 #include <linux/regmap.h>
+#include <linux/regulator/consumer.h>
 #include <drm/drm_of.h>
 #include <drm/drmP.h>
 #include <drm/drm_crtc_helper.h>
@@ -23,6 +24,8 @@
 
 #define GRF_SOC_CON6                    0x025c
 #define HDMI_SEL_VOP_LIT                (1 << 4)
+
+#define HDMI_NUM_REGULATORS             2
 
 struct rockchip_hdmi {
 	struct device *dev;
@@ -248,6 +251,7 @@ static int dw_hdmi_rockchip_bind(struct device *dev, struct device *master,
 	struct platform_device *pdev = to_platform_device(dev);
 	const struct dw_hdmi_plat_data *plat_data;
 	const struct of_device_id *match;
+	struct regulator_bulk_data *supplies;
 	struct drm_device *drm = data;
 	struct drm_encoder *encoder;
 	struct rockchip_hdmi *hdmi;
@@ -275,6 +279,14 @@ static int dw_hdmi_rockchip_bind(struct device *dev, struct device *master,
 	if (!iores)
 		return -ENXIO;
 
+	supplies = devm_kcalloc(&pdev->dev, HDMI_NUM_REGULATORS,
+				sizeof(*supplies), GFP_KERNEL);
+	if (!supplies)
+		return -ENOMEM;
+
+	supplies[0].supply = "avdd1v0";
+	supplies[1].supply = "avdd1v8";
+
 	platform_set_drvdata(pdev, hdmi);
 
 	encoder->possible_crtcs = drm_of_find_possible_crtcs(drm, dev->of_node);
@@ -297,7 +309,8 @@ static int dw_hdmi_rockchip_bind(struct device *dev, struct device *master,
 	drm_encoder_init(drm, encoder, &dw_hdmi_rockchip_encoder_funcs,
 			 DRM_MODE_ENCODER_TMDS);
 
-	return dw_hdmi_bind(dev, master, data, encoder, iores, irq, plat_data);
+	return dw_hdmi_bind(dev, master, data, encoder, iores, irq, plat_data,
+			    supplies, HDMI_NUM_REGULATORS);
 }
 
 static void dw_hdmi_rockchip_unbind(struct device *dev, struct device *master,

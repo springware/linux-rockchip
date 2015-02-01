@@ -214,7 +214,8 @@ static int dw_hdmi_imx_bind(struct device *dev, struct device *master,
 	drm_encoder_init(drm, encoder, &dw_hdmi_imx_encoder_funcs,
 			 DRM_MODE_ENCODER_TMDS);
 
-	return dw_hdmi_bind(dev, master, data, encoder, iores, irq, plat_data);
+	return dw_hdmi_bind(dev, master, data, encoder, iores, irq, plat_data,
+			    NULL, 0);
 }
 
 static void dw_hdmi_imx_unbind(struct device *dev, struct device *master,
