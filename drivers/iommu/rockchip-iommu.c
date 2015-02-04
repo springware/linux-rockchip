@@ -1017,6 +1017,9 @@ static int __init rk_iommu_init(void)
 {
 	int ret;
 
+	if (!of_find_matching_node(NULL, rk_iommu_dt_ids))
+		return 0;
+
 	ret = bus_set_iommu(&platform_bus_type, &rk_iommu_ops);
 	if (ret)
 		return ret;
@@ -1025,6 +1028,9 @@ static int __init rk_iommu_init(void)
 }
 static void __exit rk_iommu_exit(void)
 {
+	if (!of_find_matching_node(NULL, rk_iommu_dt_ids))
+		return;
+
 	platform_driver_unregister(&rk_iommu_driver);
 }
 
