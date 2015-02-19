@@ -14,8 +14,8 @@ Required properties:
 	   <&cru SCLK_MAC_TX>: clock gate for TX
 	   <&cru SCLK_MACREF>: clock gate for RMII referce clock
 	   <&cru SCLK_MACREF_OUT> clock gate for RMII reference clock output
-	   <&cru ACLK_GMAC>: AXI clock gate for GMAC 
-	   <&cru PCLK_GMAC>: APB clock gate for GMAC 
+	   <&cru ACLK_GMAC>: AXI clock gate for GMAC
+	   <&cru PCLK_GMAC>: APB clock gate for GMAC
  - clock-names: One name for each entry in the clocks property.
  - phy-mode: See ethernet.txt file in the same directory.
  - pinctrl-names: Names corresponding to the numbered pinctrl states.
@@ -23,7 +23,7 @@ Required properties:
  - clock_in_out: For RGMII, it must be "input", means main clock(125MHz)
    is not sourced from SoC's PLL, but input from PHY; For RMII, "input" means
    PHY provides the reference clock(50MHz), "output" means GMAC provides the
-   reference clock. 
+   reference clock.
  - snps,reset-gpio       gpio number for phy reset.
  - snps,reset-active-low boolean flag to indicate if phy reset is active low.
  - assigned-clocks: main clock, should be <&cru SCLK_MAC>;
