@@ -1,5 +1,8 @@
 /*
- * Copyright 2013 - Hans de Goede <hdegoede@redhat.com>
+ * thermal_exynos.h - Samsung EXYNOS TMU device tree definitions
+ *
+ *  Copyright (C) 2014 Samsung Electronics
+ *  Lukasz Majewski <l.majewski@samsung.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -10,13 +13,16 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
+ *
  */
 
-#ifndef __LINUX_CLK_SUNXI_H_
-#define __LINUX_CLK_SUNXI_H_
+#ifndef _EXYNOS_THERMAL_TMU_DT_H
+#define _EXYNOS_THERMAL_TMU_DT_H
 
-#include <linux/clk.h>
+#define TYPE_ONE_POINT_TRIMMING 0
+#define TYPE_ONE_POINT_TRIMMING_25 1
+#define TYPE_ONE_POINT_TRIMMING_85 2
+#define TYPE_TWO_POINT_TRIMMING 3
+#define TYPE_NONE 4
 
-void clk_sunxi_mmc_phase_control(struct clk *clk, u8 sample, u8 output);
-
-#endif
+#endif /* _EXYNOS_THERMAL_TMU_DT_H */
