@@ -274,6 +274,7 @@ static int _next_div(const struct clk_div_table *table, int div,
 
 static int clk_divider_bestdiv(struct clk_hw *hw, unsigned long rate,
 			       unsigned long *best_parent_rate,
+			       struct clk_hw *parent_hw,
 			       const struct clk_div_table *table, u8 width,
 			       unsigned long flags)
 {
@@ -312,7 +313,7 @@ static int clk_divider_bestdiv(struct clk_hw *hw, unsigned long rate,
 			*best_parent_rate = parent_rate_saved;
 			return i;
 		}
-		parent_rate = __clk_round_rate(__clk_get_parent(hw->clk),
+		parent_rate = __clk_round_rate(parent_hw->clk,
 				MULT_ROUND_UP(rate, i));
 		now = DIV_ROUND_UP(parent_rate, i);
 		if (_is_best_div(rate, now, best, flags)) {
@@ -324,7 +325,7 @@ static int clk_divider_bestdiv(struct clk_hw *hw, unsigned long rate,
 
 	if (!bestdiv) {
 		bestdiv = _get_maxdiv(table, width, flags);
-		*best_parent_rate = __clk_round_rate(__clk_get_parent(hw->clk), 1);
+		*best_parent_rate = __clk_round_rate(parent_hw->clk, 1);
 	}
 
 	return bestdiv;
@@ -334,9 +335,11 @@ long divider_round_rate(struct clk_hw *hw, unsigned long rate,
 			unsigned long *prate, const struct clk_div_table *table,
 			u8 width, unsigned long flags)
 {
+	struct clk_hw *parent_hw = __clk_get_hw(__clk_get_parent(hw->clk));
 	int div;
 
-	div = clk_divider_bestdiv(hw, rate, prate, table, width, flags);
+	div = clk_divider_bestdiv(hw, rate, prate, parent_hw, table, width,
+				  flags);
 
 	return DIV_ROUND_UP(*prate, div);
 }
@@ -367,6 +370,39 @@ static long clk_divider_round_rate(struct clk_hw *hw, unsigned long rate,
 
 	return divider_round_rate(hw, rate, prate, divider->table,
 				  divider->width, divider->flags);
+}
+
+static long clk_divider_determine_rate(struct clk_hw *hw, unsigned long rate,
+					unsigned long min_rate,
+					unsigned long max_rate,
+					unsigned long *prate,
+					struct clk_hw **parent_p)
+{
+	struct clk_divider *divider = to_clk_divider(hw);
+	int bestdiv;
+
+	if (divider->flags & CLK_DIVIDER_READ_ONLY) {
+		bestdiv = readl(divider->reg) >> divider->shift;
+		bestdiv &= div_mask(divider->width);
+		bestdiv = _get_div(divider->table, bestdiv, divider->flags);
+
+		if (__clk_get_flags(hw->clk) & CLK_SET_RATE_PARENT) {
+			unsigned long best_parent;
+
+			best_parent = rate * bestdiv;
+			*prate = __clk_determine_rate(*parent_p, best_parent,
+						      min_rate * bestdiv,
+						      max_rate * bestdiv);
+		}
+
+		return DIV_ROUND_UP(*prate, bestdiv);
+	}
+
+	bestdiv = clk_divider_bestdiv(hw, rate, prate,
+				      *parent_p, divider->table,
+				      divider->width, divider->flags);
+
+	return DIV_ROUND_UP(*prate, bestdiv);
 }
 
 int divider_get_val(unsigned long rate, unsigned long parent_rate,
@@ -418,6 +454,7 @@ static int clk_divider_set_rate(struct clk_hw *hw, unsigned long rate,
 const struct clk_ops clk_divider_ops = {
 	.recalc_rate = clk_divider_recalc_rate,
 	.round_rate = clk_divider_round_rate,
+	.determine_rate = clk_divider_determine_rate,
 	.set_rate = clk_divider_set_rate,
 };
 EXPORT_SYMBOL_GPL(clk_divider_ops);
