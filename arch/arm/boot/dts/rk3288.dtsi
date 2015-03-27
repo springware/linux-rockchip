@@ -615,6 +615,10 @@
 				reg = <0>;
 				remote-endpoint = <&hdmi_in_vopb>;
 			};
+			vopb_out_edp: endpoint@1 {
+				reg = <1>;
+				remote-endpoint = <&edp_in_vopb>;
+			};
 		};
 	};
 
@@ -646,6 +650,10 @@
 				reg = <0>;
 				remote-endpoint = <&hdmi_in_vopl>;
 			};
+			vopl_out_edp: endpoint@1 {
+				reg = <1>;
+				remote-endpoint = <&edp_in_vopl>;
+			};
 		};
 	};
 
@@ -656,6 +664,37 @@
 		interrupt-names = "vopl_mmu";
 		#iommu-cells = <0>;
 		status = "disabled";
+	};
+
+	edp: edp@ff970000 {
+		compatible = "rockchip,rk3288-edp";
+		reg = <0xff970000 0x4000>;
+		interrupts = <GIC_SPI 98 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&cru SCLK_EDP>, <&cru SCLK_EDP_24M>, <&cru PCLK_EDP_CTRL>;
+		rockchip,grf = <&grf>;
+		clock-names = "dp", "phy", "pclk";
+		resets = <&cru 111>;
+		reset-names = "edp";
+		status = "disabled";
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			edp_in: port@0 {
+				reg = <0>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				edp_in_vopb: endpoint@0 {
+					reg = <0>;
+					remote-endpoint = <&vopb_out_edp>;
+				};
+				edp_in_vopl: endpoint@1 {
+					reg = <1>;
+					remote-endpoint = <&vopl_out_edp>;
+				};
+			};
+		};
 	};
 
 	hdmi: hdmi@ff980000 {
@@ -854,6 +893,12 @@
 
 			ddr1_retention: ddr1-retention {
 				rockchip,pins = <0 3 RK_FUNC_1 &pcfg_pull_up>;
+			};
+		};
+
+		edp {
+			edp_hpd: edp_hpd {
+				rockchip,pins = <7 11 RK_FUNC_2 &pcfg_pull_down>;
 			};
 		};
 
