@@ -25,3 +25,12 @@ config ROCKCHIP_DW_HDMI
 	  for the Synopsys DesignWare HDMI driver. If you want to
 	  enable HDMI on RK3288 based SoC, you should selet this
 	  option.
+
+config ROCKCHIP_EDP
+	bool "Rockchip edp support"
+	depends on DRM_ROCKCHIP
+	help
+	  Choose this option if you have a Rockchip eDP.
+	  Rockchip rk3288 SoC has eDP TX Controller can be used.
+	  If you have an Embedded DisplayPort Panel, say Y to enable its
+	  driver.
