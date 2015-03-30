@@ -21,6 +21,7 @@
 #include <linux/component.h>
 #include <linux/clk.h>
 #include <linux/mfd/syscon.h>
+#include <linux/of_graph.h>
 #include <linux/regmap.h>
 #include <linux/reset.h>
 
@@ -822,7 +823,7 @@ static int rockchip_edp_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct drm_panel *panel;
-	struct device_node *panel_node;
+	struct device_node *panel_node, *port, *endpoint;
 	struct rockchip_edp_device *edp;
 
 	if (!dev->of_node) {
@@ -830,20 +831,32 @@ static int rockchip_edp_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	panel_node = of_parse_phandle(dev->of_node, "rockchip,panel", 0);
+	port = of_graph_get_port_by_id(dev->of_node, 1);
+	if (!port) {
+		dev_err(dev, "can't find output port\n");
+		return -EINVAL;
+	}
+
+	endpoint = of_get_child_by_name(port, "endpoint");
+	of_node_put(port);
+	if (endpoint) {
+		dev_err(dev, "no output endpoint found\n");
+		return -EINVAL;
+	}
+
+	panel_node = of_graph_get_remote_port_parent(endpoint);
+	of_node_put(endpoint);
 	if (!panel_node) {
-		DRM_ERROR("failed to find rockchip,panel dt node\n");
-		return -ENODEV;
+		dev_err(&pdev->dev, "no output node found\n");
+		return -EINVAL;
 	}
 
 	panel = of_drm_find_panel(panel_node);
+	of_node_put(panel_node);
 	if (!panel) {
 		DRM_ERROR("failed to find panel\n");
-		of_node_put(panel_node);
 		return -EPROBE_DEFER;
 	}
-
-	of_node_put(panel_node);
 
 	edp = devm_kzalloc(dev, sizeof(*edp), GFP_KERNEL);
 	if (!edp)
