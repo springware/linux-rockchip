@@ -148,16 +148,26 @@ static void cros_ec_keyb_process(struct cros_ec_keyb *ckdev,
 
 static int cros_ec_keyb_get_state(struct cros_ec_keyb *ckdev, uint8_t *kb_state)
 {
-	struct cros_ec_command msg = {
-		.version = 0,
-		.command = EC_CMD_MKBP_STATE,
-		.outdata = NULL,
-		.outsize = 0,
-		.indata = kb_state,
-		.insize = ckdev->cols,
-	};
+	int ret = 0;
+	struct cros_ec_command *msg;
 
-	return cros_ec_cmd_xfer(ckdev->ec, &msg);
+	msg = kzalloc(sizeof(*msg) + ckdev->cols, GFP_KERNEL);
+	if (!msg)
+		return -ENOMEM;
+
+	msg->command = EC_CMD_MKBP_STATE;
+	msg->insize = ckdev->cols;
+
+	ret = cros_ec_cmd_xfer(ckdev->ec, msg);
+	if (ret < 0) {
+		dev_err(ckdev->dev, "Error transferring EC message %d\n", ret);
+		goto exit;
+	}
+
+	memcpy(kb_state, msg->data, ckdev->cols);
+exit:
+	kfree(msg);
+	return ret;
 }
 
 static irqreturn_t cros_ec_keyb_irq(int irq, void *data)
