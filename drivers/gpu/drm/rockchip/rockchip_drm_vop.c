@@ -747,24 +747,31 @@ static int vop_disable_plane(struct drm_plane *plane)
 
 	vop = to_vop(plane->crtc);
 
-	ret = drm_vblank_get(plane->dev, vop->pipe);
-	if (ret) {
-		DRM_ERROR("failed to get vblank, %d\n", ret);
-		return ret;
-	}
+	if (vop_win->vop->is_enabled) {
+		ret = drm_vblank_get(plane->dev, vop->pipe);
+		if (ret) {
+			DRM_ERROR("failed to get vblank, %d\n", ret);
+			return ret;
+		}
 
-	mutex_lock(&vop->vsync_mutex);
+		mutex_lock(&vop->vsync_mutex);
 
-	ret = vop_win_queue_fb(vop_win, NULL, 0, NULL);
-	if (ret) {
-		drm_vblank_put(plane->dev, vop->pipe);
+		ret = vop_win_queue_fb(vop_win, NULL, 0, NULL);
+		if (ret) {
+			drm_vblank_put(plane->dev, vop->pipe);
+			mutex_unlock(&vop->vsync_mutex);
+			return ret;
+		}
+
+		vop->vsync_work_pending = true;
 		mutex_unlock(&vop->vsync_mutex);
-		return ret;
 	}
 
-	vop->vsync_work_pending = true;
-	mutex_unlock(&vop->vsync_mutex);
-
+	/*
+	 * It is counter-intuitive, but for some reason the following register
+	 * accesses to disable the vop_win are safe to do even if the vop is
+	 * disabled (vop_hclk and pd_vio).
+	 */
 	spin_lock(&vop->reg_lock);
 	VOP_WIN_SET(vop, win, enable, 0);
 	vop_cfg_done(vop);
