@@ -24,6 +24,8 @@
 #include <linux/of_graph.h>
 #include <linux/component.h>
 
+#include <drm/rockchip_drm.h>
+
 #include "rockchip_drm_drv.h"
 #include "rockchip_drm_fb.h"
 #include "rockchip_drm_fbdev.h"
@@ -253,6 +255,11 @@ void rockchip_drm_lastclose(struct drm_device *dev)
 	drm_fb_helper_restore_fbdev_mode_unlocked(&priv->fbdev_helper);
 }
 
+static const struct drm_ioctl_desc rockchip_ioctls[] = {
+	DRM_IOCTL_DEF_DRV(ROCKCHIP_GEM_CREATE, rockchip_gem_create_ioctl,
+			  DRM_UNLOCKED | DRM_AUTH),
+};
+
 static const struct file_operations rockchip_drm_driver_fops = {
 	.owner = THIS_MODULE,
 	.open = drm_open,
@@ -292,6 +299,8 @@ static struct drm_driver rockchip_drm_driver = {
 	.gem_prime_vmap		= rockchip_gem_prime_vmap,
 	.gem_prime_vunmap	= rockchip_gem_prime_vunmap,
 	.gem_prime_mmap		= rockchip_gem_mmap_buf,
+	.ioctls			= rockchip_ioctls,
+	.num_ioctls		= ARRAY_SIZE(rockchip_ioctls),
 	.fops			= &rockchip_drm_driver_fops,
 	.name	= DRIVER_NAME,
 	.desc	= DRIVER_DESC,
@@ -385,7 +394,7 @@ static const struct dev_pm_ops rockchip_drm_pm_ops = {
 int rockchip_drm_encoder_get_mux_id(struct device_node *node,
 				    struct drm_encoder *encoder)
 {
-	struct device_node *ep = NULL;
+	struct device_node *ep;
 	struct drm_crtc *crtc = encoder->crtc;
 	struct of_endpoint endpoint;
 	struct device_node *port;
@@ -394,18 +403,15 @@ int rockchip_drm_encoder_get_mux_id(struct device_node *node,
 	if (!node || !crtc)
 		return -EINVAL;
 
-	do {
-		ep = of_graph_get_next_endpoint(node, ep);
-		if (!ep)
-			break;
-
+	for_each_endpoint_of_node(node, ep) {
 		port = of_graph_get_remote_port(ep);
 		of_node_put(port);
 		if (port == crtc->port) {
 			ret = of_graph_parse_endpoint(ep, &endpoint);
+			of_node_put(ep);
 			return ret ?: endpoint.id;
 		}
-	} while (ep);
+	}
 
 	return -EINVAL;
 }

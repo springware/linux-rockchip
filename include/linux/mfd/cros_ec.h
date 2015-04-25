@@ -16,9 +16,25 @@
 #ifndef __LINUX_MFD_CROS_EC_H
 #define __LINUX_MFD_CROS_EC_H
 
+#include <linux/cdev.h>
 #include <linux/notifier.h>
 #include <linux/mfd/cros_ec_commands.h>
 #include <linux/mutex.h>
+
+/*
+ * The EC is unresponsive for a time after a reboot command.  Add a
+ * simple delay to make sure that the bus stays locked.
+ */
+#define EC_REBOOT_DELAY_MS             50
+
+/*
+ * Max bus-specific overhead incurred by request/responses.
+ * I2C requires 1 additional byte for requests.
+ * I2C requires 2 additional bytes for responses.
+ * */
+#define EC_PROTO_VERSION_UNKNOWN	0
+#define EC_MAX_REQUEST_OVERHEAD		1
+#define EC_MAX_RESPONSE_OVERHEAD	2
 
 /*
  * Command interface between EC and AP, for LPC, I2C and SPI interfaces.
@@ -38,20 +54,18 @@ enum {
 /*
  * @version: Command version number (often 0)
  * @command: Command to send (EC_CMD_...)
- * @outdata: Outgoing data to EC
  * @outsize: Outgoing length in bytes
- * @indata: Where to put the incoming data from EC
  * @insize: Max number of bytes to accept from EC
  * @result: EC's response to the command (separate from communication failure)
+ * @data: Where to put the incoming data from EC and outgoing data to EC
  */
 struct cros_ec_command {
 	uint32_t version;
 	uint32_t command;
-	uint8_t *outdata;
 	uint32_t outsize;
-	uint8_t *indata;
 	uint32_t insize;
 	uint32_t result;
+	uint8_t data[0];
 };
 
 /**
@@ -59,12 +73,21 @@ struct cros_ec_command {
  *
  * @ec_name: name of EC device (e.g. 'chromeos-ec')
  * @phys_name: name of physical comms layer (e.g. 'i2c-4')
- * @dev: Device pointer
+ * @dev: Device pointer for physical comms device
+ * @vdev: Device pointer for virtual comms device
+ * @cdev: Character device structure for virtual comms device
  * @was_wake_device: true if this device was set to wake the system from
  * sleep at the last suspend
+ * @cmd_readmem: direct read of the EC memory-mapped region, if supported
+ *     @offset is within EC_LPC_ADDR_MEMMAP region.
+ *     @bytes: number of bytes to read. zero means "read a string" (including
+ *     the trailing '\0'). At most only EC_MEMMAP_SIZE bytes can be read.
+ *     Caller must ensure that the buffer is large enough for the result when
+ *     reading a string.
  *
  * @priv: Private data
  * @irq: Interrupt to use
+ * @id: Device id
  * @din: input buffer (for data from EC)
  * @dout: output buffer (for data to EC)
  * \note
@@ -76,12 +99,12 @@ struct cros_ec_command {
  * to using dword.
  * @din_size: size of din buffer to allocate (zero to use static din)
  * @dout_size: size of dout buffer to allocate (zero to use static dout)
- * @parent: pointer to parent device (e.g. i2c or spi device)
  * @wake_enabled: true if this device can wake the system from sleep
  * @cmd_xfer: send command to EC and get response
  *     Returns the number of bytes received if the communication succeeded, but
  *     that doesn't mean the EC was happy with the command. The caller
  *     should check msg.result for the EC's result code.
+ * @pkt_xfer: send packet to EC and get response
  * @lock: one transaction at a time
  */
 struct cros_ec_device {
@@ -90,19 +113,29 @@ struct cros_ec_device {
 	const char *ec_name;
 	const char *phys_name;
 	struct device *dev;
+	struct device *vdev;
+	struct cdev cdev;
 	bool was_wake_device;
 	struct class *cros_class;
+	int (*cmd_readmem)(struct cros_ec_device *ec, unsigned int offset,
+			   unsigned int bytes, void *dest);
 
 	/* These are used to implement the platform-specific interface */
+	u16 max_request;
+	u16 max_response;
+	u16 max_passthru;
+	u16 proto_version;
 	void *priv;
 	int irq;
-	uint8_t *din;
-	uint8_t *dout;
+	int id;
+	u8 *din;
+	u8 *dout;
 	int din_size;
 	int dout_size;
-	struct device *parent;
 	bool wake_enabled;
 	int (*cmd_xfer)(struct cros_ec_device *ec,
+			struct cros_ec_command *msg);
+	int (*pkt_xfer)(struct cros_ec_device *ec,
 			struct cros_ec_command *msg);
 	struct mutex lock;
 };
