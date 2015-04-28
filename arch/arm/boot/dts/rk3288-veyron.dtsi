@@ -441,6 +441,10 @@
 	status = "okay";
 };
 
+&gpu {
+	status = "okay";
+};
+
 /*&tsadc {
 	tsadc-tshut-mode = <1>; // tshut mode 0:CRU 1:GPIO
 	tsadc-tshut-polarity = <1>; // tshut polarity 0:LOW 1:HIGH
