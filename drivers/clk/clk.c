@@ -2220,14 +2220,6 @@ static inline void clk_debug_unregister(struct clk_core *core)
 }
 #endif
 
-static bool clk_is_orphan(const struct clk *clk)
-{
-	if (!clk)
-		return false;
-
-	return clk->core->orphan;
-}
-
 /**
  * __clk_init - initialize the data structures in a struct clk
  * @dev:	device initializing this clk, placeholder for now
@@ -2966,11 +2958,6 @@ struct clk *__of_clk_get_from_provider(struct of_phandle_args *clkspec,
 		if (provider->node == clkspec->np)
 			clk = provider->get(clkspec, provider->data);
 		if (!IS_ERR(clk)) {
-			if (clk_is_orphan(clk)) {
-				clk = ERR_PTR(-EPROBE_DEFER);
-				break;
-			}
-
 			clk = __clk_create_clk(__clk_get_hw(clk), dev_id,
 					       con_id);
 
