@@ -17,6 +17,12 @@
 #include <linux/slab.h>
 
 #define I2C_MAX_RETRIES 3
+/*
+ * I2C commands are generally very small so 32 bytes is in
+ * most cases enough to hold the EC command headers and
+ * payload. Pre-allocate a buffer for these common cases.
+ */
+#define PREALLOC_SIZE 32
 
 /**
  * struct ec_i2c_device - Driver data for I2C tunnel
@@ -182,8 +188,10 @@ static int ec_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg i2c_msgs[],
 	const u16 bus_num = bus->remote_bus;
 	int request_len;
 	int response_len;
+	int alloc_size;
 	int result;
-	struct cros_ec_command msg = { };
+	struct cros_ec_command *msg;
+	u8 buf[sizeof(*msg) + PREALLOC_SIZE];
 
 	request_len = ec_i2c_count_message(i2c_msgs, num);
 	if (request_len < 0) {
@@ -198,25 +206,46 @@ static int ec_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg i2c_msgs[],
 		return response_len;
 	}
 
-	result = ec_i2c_construct_message(msg.outdata, i2c_msgs, num, bus_num);
-	if (result)
-		return result;
+	alloc_size = max(request_len, response_len);
 
-	msg.version = 0;
-	msg.command = EC_CMD_I2C_PASSTHRU;
-	msg.outsize = request_len;
-	msg.insize = response_len;
+	if (alloc_size > PREALLOC_SIZE) {
+		msg = kmalloc(sizeof(*msg) + alloc_size, GFP_KERNEL);
+		if (!msg)
+			return -ENOMEM;
+	} else {
+		msg = (struct cros_ec_command *)buf;
+		alloc_size = 0;
+	}
 
-	result = cros_ec_cmd_xfer(bus->ec, &msg);
-	if (result < 0)
-		return result;
+	result = ec_i2c_construct_message(msg->data, i2c_msgs, num, bus_num);
+	if (result) {
+		dev_err(dev, "Error constructing EC i2c message %d\n", result);
+		goto exit;
+	}
 
-	result = ec_i2c_parse_response(msg.indata, i2c_msgs, &num);
-	if (result < 0)
-		return result;
+	msg->version = 0;
+	msg->command = EC_CMD_I2C_PASSTHRU;
+	msg->outsize = request_len;
+	msg->insize = response_len;
+
+	result = cros_ec_cmd_xfer(bus->ec, msg);
+	if (result < 0) {
+		dev_err(dev, "Error transferring EC i2c message %d\n", result);
+		goto exit;
+	}
+
+	result = ec_i2c_parse_response(msg->data, i2c_msgs, &num);
+	if (result < 0) {
+		dev_err(dev, "Error parsing EC i2c message %d\n", result);
+		goto exit;
+	}
 
 	/* Indicate success by saying how many messages were sent */
-	return num;
+	result = num;
+exit:
+	if (alloc_size)
+		kfree(msg);
+	return result;
 }
 
 static u32 ec_i2c_functionality(struct i2c_adapter *adap)
