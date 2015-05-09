@@ -289,6 +289,8 @@ exit:
 	return ret;
 }
 
+static int dev_id;
+
 int cros_ec_prepare_tx(struct cros_ec_device *ec_dev,
 		       struct cros_ec_command *msg)
 {
@@ -379,12 +381,46 @@ int cros_ec_cmd_xfer(struct cros_ec_device *ec_dev,
 }
 EXPORT_SYMBOL(cros_ec_cmd_xfer);
 
-static const struct mfd_cell cros_devs[] = {
-	{
+static int cros_ec_dev_register(struct cros_ec_device *ec_dev,
+				int dev_id, int devidx)
+{
+	struct device *dev = ec_dev->dev;
+	struct cros_ec_platform ec_p = {
+		.cmd_offset = 0,
+	};
+
+	struct mfd_cell ec_cell = {
 		.name = "cros-ec-ctl",
 		.id = PLATFORM_DEVID_AUTO,
-	},
-};
+		.platform_data = &ec_p,
+		.pdata_size = sizeof(ec_p),
+	};
+
+	switch (devidx) {
+	case 0:
+		if (IS_ENABLED(CONFIG_OF) && dev->of_node) {
+			ec_p.ec_name = of_get_property(dev->of_node, "devname",
+						       NULL);
+			if (ec_p.ec_name == NULL) {
+				dev_dbg(dev,
+					"Device name not found, using default");
+				ec_p.ec_name = CROS_EC_DEV_NAME;
+			}
+		} else {
+			ec_p.ec_name = CROS_EC_DEV_NAME;
+		}
+		break;
+	case 1:
+		ec_p.ec_name = CROS_EC_DEV_PD_NAME;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	ec_p.cmd_offset = EC_CMD_PASSTHRU_OFFSET(devidx);
+	return mfd_add_devices(dev, dev_id, &ec_cell, 1,
+			       NULL, ec_dev->irq, NULL);
+}
 
 int cros_ec_register(struct cros_ec_device *ec_dev)
 {
@@ -407,12 +443,26 @@ int cros_ec_register(struct cros_ec_device *ec_dev)
 
 	cros_ec_probe_all(ec_dev);
 
-	err = mfd_add_devices(dev, 0, cros_devs,
-			      ARRAY_SIZE(cros_devs),
-			      NULL, ec_dev->irq, NULL);
+	err = cros_ec_dev_register(ec_dev, dev_id++, 0);
 	if (err) {
-		dev_err(dev, "failed to add mfd devices\n");
+		dev_err(dev, "failed to add ec\n");
 		return err;
+	}
+
+	if (ec_dev->max_passthru) {
+		/*
+		 * Register a PD device as well on top of this device.
+		 * We make the following assumptions:
+		 * - behind an EC, we have a pd
+		 * - only one device added.
+		 * - the EC is responsive at init time (it is not true for a
+		 *   sensor hub.
+		 */
+		err = cros_ec_dev_register(ec_dev, dev_id++, 1);
+		if (err) {
+			dev_err(dev, "failed to add additional ec\n");
+			return err;
+		}
 	}
 
 	if (IS_ENABLED(CONFIG_OF) && dev->of_node) {
