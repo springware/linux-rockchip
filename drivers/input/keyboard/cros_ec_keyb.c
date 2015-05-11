@@ -163,16 +163,7 @@ static int cros_ec_keyb_get_state(struct cros_ec_keyb *ckdev, uint8_t *kb_state)
 
 	memcpy(kb_state, msg->data, ckdev->cols);
 
-	ret = cros_ec_cmd_xfer(ckdev->ec, msg);
-	if (ret < 0) {
-		dev_err(ckdev->dev, "Error transferring EC message %d\n", ret);
-		goto exit;
-	}
-
-	memcpy(kb_state, msg->data, ckdev->cols);
-exit:
-	kfree(msg);
-	return ret;
+	return 0;
 }
 
 static irqreturn_t cros_ec_keyb_irq(int irq, void *data)
