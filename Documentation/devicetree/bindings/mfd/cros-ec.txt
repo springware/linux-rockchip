@@ -19,7 +19,7 @@ Required properties (SPI):
 
 Optional properties (SPI):
 - google,cros-ec-spi-pre-delay: Some implementations of the EC need a little
-  time to wake up from sleep before they can recieve SPI transfers at a high
+  time to wake up from sleep before they can receive SPI transfers at a high
   clock rate. This property specifies the delay, in usecs, between the
   assertion of the CS to the start of the first clock pulse.
 - google,cros-ec-spi-msg-delay: Some implementations of the EC require some

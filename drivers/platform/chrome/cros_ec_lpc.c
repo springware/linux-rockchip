@@ -273,7 +273,6 @@ static int cros_ec_lpc_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, ec_dev);
 	ec_dev->dev = dev;
-	ec_dev->ec_name = pdev->name;
 	ec_dev->phys_name = dev_name(dev);
 	ec_dev->cmd_xfer = cros_ec_cmd_xfer_lpc;
 	ec_dev->pkt_xfer = cros_ec_pkt_xfer_lpc;
@@ -318,6 +317,13 @@ static struct dmi_system_id cros_ec_lpc_dmi_table[] __initdata = {
 		.matches = {
 			DMI_MATCH(DMI_SYS_VENDOR, "GOOGLE"),
 			DMI_MATCH(DMI_PRODUCT_NAME, "Link"),
+		},
+	},
+	{
+		/* x86-samus, the Chromebook Pixel 2. */
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "GOOGLE"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "Samus"),
 		},
 	},
 	{
