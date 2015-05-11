@@ -92,7 +92,7 @@ out:
 	return ret;
 }
 
-static struct cros_ec_command *alloc_lightbar_cmd_msg(struct cros_ec_dev *ec)
+static struct cros_ec_command *alloc_command_msg(void)
 {
 	struct cros_ec_command *msg;
 	int len;
@@ -100,19 +100,18 @@ static struct cros_ec_command *alloc_lightbar_cmd_msg(struct cros_ec_dev *ec)
 	len = max(sizeof(struct ec_params_lightbar),
 		  sizeof(struct ec_response_lightbar));
 
-	msg = kmalloc(sizeof(*msg) + len, GFP_KERNEL);
+	msg = kzalloc(sizeof(*msg) + len, GFP_KERNEL);
 	if (!msg)
 		return NULL;
 
-	msg->version = 0;
-	msg->command = EC_CMD_LIGHTBAR_CMD + ec->cmd_offset;
+	msg->command = EC_CMD_LIGHTBAR_CMD;
 	msg->outsize = sizeof(struct ec_params_lightbar);
 	msg->insize = sizeof(struct ec_response_lightbar);
 
 	return msg;
 }
 
-static int get_lightbar_version(struct cros_ec_dev *ec,
+static int get_lightbar_version(struct cros_ec_device *ec,
 				uint32_t *ver_ptr, uint32_t *flg_ptr)
 {
 	struct ec_params_lightbar *param;
@@ -120,13 +119,13 @@ static int get_lightbar_version(struct cros_ec_dev *ec,
 	struct cros_ec_command *msg;
 	int ret;
 
-	msg = alloc_lightbar_cmd_msg(ec);
+	msg = alloc_command_msg();
 	if (!msg)
 		return 0;
 
 	param = (struct ec_params_lightbar *)msg->data;
 	param->cmd = LIGHTBAR_CMD_VERSION;
-	ret = cros_ec_cmd_xfer(ec->ec_dev, msg);
+	ret = cros_ec_cmd_xfer(ec, msg);
 	if (ret < 0) {
 		ret = 0;
 		goto exit;
@@ -165,8 +164,7 @@ static ssize_t version_show(struct device *dev,
 			    struct device_attribute *attr, char *buf)
 {
 	uint32_t version = 0, flags = 0;
-	struct cros_ec_dev *ec = container_of(dev,
-					      struct cros_ec_dev, class_dev);
+	struct cros_ec_device *ec = dev_get_drvdata(dev);
 	int ret;
 
 	ret = lb_throttle();
@@ -188,13 +186,12 @@ static ssize_t brightness_store(struct device *dev,
 	struct cros_ec_command *msg;
 	int ret;
 	unsigned int val;
-	struct cros_ec_dev *ec = container_of(dev,
-					      struct cros_ec_dev, class_dev);
+	struct cros_ec_device *ec = dev_get_drvdata(dev);
 
 	if (kstrtouint(buf, 0, &val))
 		return -EINVAL;
 
-	msg = alloc_lightbar_cmd_msg(ec);
+	msg = alloc_command_msg();
 	if (!msg)
 		return -ENOMEM;
 
@@ -205,7 +202,7 @@ static ssize_t brightness_store(struct device *dev,
 	if (ret)
 		goto exit;
 
-	ret = cros_ec_cmd_xfer(ec->ec_dev, msg);
+	ret = cros_ec_cmd_xfer(ec, msg);
 	if (ret < 0)
 		goto exit;
 
@@ -233,12 +230,11 @@ static ssize_t led_rgb_store(struct device *dev, struct device_attribute *attr,
 {
 	struct ec_params_lightbar *param;
 	struct cros_ec_command *msg;
-	struct cros_ec_dev *ec = container_of(dev,
-					      struct cros_ec_dev, class_dev);
+	struct cros_ec_device *ec = dev_get_drvdata(dev);
 	unsigned int val[4];
 	int ret, i = 0, j = 0, ok = 0;
 
-	msg = alloc_lightbar_cmd_msg(ec);
+	msg = alloc_command_msg();
 	if (!msg)
 		return -ENOMEM;
 
@@ -271,7 +267,7 @@ static ssize_t led_rgb_store(struct device *dev, struct device_attribute *attr,
 					return ret;
 			}
 
-			ret = cros_ec_cmd_xfer(ec->ec_dev, msg);
+			ret = cros_ec_cmd_xfer(ec, msg);
 			if (ret < 0)
 				goto exit;
 
@@ -307,10 +303,9 @@ static ssize_t sequence_show(struct device *dev,
 	struct ec_response_lightbar *resp;
 	struct cros_ec_command *msg;
 	int ret;
-	struct cros_ec_dev *ec = container_of(dev,
-					      struct cros_ec_dev, class_dev);
+	struct cros_ec_device *ec = dev_get_drvdata(dev);
 
-	msg = alloc_lightbar_cmd_msg(ec);
+	msg = alloc_command_msg();
 	if (!msg)
 		return -ENOMEM;
 
@@ -320,7 +315,7 @@ static ssize_t sequence_show(struct device *dev,
 	if (ret)
 		goto exit;
 
-	ret = cros_ec_cmd_xfer(ec->ec_dev, msg);
+	ret = cros_ec_cmd_xfer(ec, msg);
 	if (ret < 0)
 		goto exit;
 
@@ -349,10 +344,9 @@ static ssize_t sequence_store(struct device *dev, struct device_attribute *attr,
 	struct cros_ec_command *msg;
 	unsigned int num;
 	int ret, len;
-	struct cros_ec_dev *ec = container_of(dev,
-					      struct cros_ec_dev, class_dev);
+	struct cros_ec_device *ec = dev_get_drvdata(dev);
 
-	msg = alloc_lightbar_cmd_msg(ec);
+	msg = alloc_command_msg();
 	if (!msg)
 		return -ENOMEM;
 
@@ -377,7 +371,7 @@ static ssize_t sequence_store(struct device *dev, struct device_attribute *attr,
 	if (ret)
 		return ret;
 
-	ret = cros_ec_cmd_xfer(ec->ec_dev, msg);
+	ret = cros_ec_cmd_xfer(ec, msg);
 	if (ret < 0)
 		return ret;
 
@@ -402,27 +396,25 @@ static struct attribute *__lb_cmds_attrs[] = {
 	&dev_attr_sequence.attr,
 	NULL,
 };
-
-static umode_t cros_ec_lightbar_attrs_are_visible(struct kobject *kobj,
-						  struct attribute *a, int n)
-{
-	struct device *dev = container_of(kobj, struct device, kobj);
-	struct cros_ec_dev *ec = container_of(dev,
-					      struct cros_ec_dev, class_dev);
-	struct platform_device *pdev = container_of(ec->dev,
-						   struct platform_device, dev);
-	if (pdev->id != 0)
-		return 0;
-
-	/* Only instantiate this stuff if the EC has a lightbar */
-	if (get_lightbar_version(ec, NULL, NULL))
-		return a->mode;
-	else
-		return 0;
-}
-
-struct attribute_group cros_ec_lightbar_attr_group = {
+static struct attribute_group lb_cmds_attr_group = {
 	.name = "lightbar",
 	.attrs = __lb_cmds_attrs,
-	.is_visible = cros_ec_lightbar_attrs_are_visible,
 };
+
+void ec_dev_lightbar_init(struct cros_ec_device *ec)
+{
+	int ret = 0;
+
+	/* Only instantiate this stuff if the EC has a lightbar */
+	if (!get_lightbar_version(ec, NULL, NULL))
+		return;
+
+	ret = sysfs_create_group(&ec->vdev->kobj, &lb_cmds_attr_group);
+	if (ret)
+		pr_warn("sysfs_create_group() failed: %d\n", ret);
+}
+
+void ec_dev_lightbar_remove(struct cros_ec_device *ec)
+{
+	sysfs_remove_group(&ec->vdev->kobj, &lb_cmds_attr_group);
+}

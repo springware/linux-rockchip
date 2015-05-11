@@ -17,12 +17,6 @@
 #include <linux/slab.h>
 
 #define I2C_MAX_RETRIES 3
-/*
- * I2C commands are generally very small so 32 bytes is in
- * most cases enough to hold the EC command headers and
- * payload. Pre-allocate a buffer for these common cases.
- */
-#define PREALLOC_SIZE 32
 
 /**
  * struct ec_i2c_device - Driver data for I2C tunnel
@@ -188,10 +182,8 @@ static int ec_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg i2c_msgs[],
 	const u16 bus_num = bus->remote_bus;
 	int request_len;
 	int response_len;
-	int alloc_size;
 	int result;
 	struct cros_ec_command *msg;
-	u8 buf[sizeof(*msg) + PREALLOC_SIZE];
 
 	request_len = ec_i2c_count_message(i2c_msgs, num);
 	if (request_len < 0) {
@@ -206,16 +198,10 @@ static int ec_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg i2c_msgs[],
 		return response_len;
 	}
 
-	alloc_size = max(request_len, response_len);
-
-	if (alloc_size > PREALLOC_SIZE) {
-		msg = kmalloc(sizeof(*msg) + alloc_size, GFP_KERNEL);
-		if (!msg)
-			return -ENOMEM;
-	} else {
-		msg = (struct cros_ec_command *)buf;
-		alloc_size = 0;
-	}
+	msg = kzalloc(sizeof(*msg) + max(request_len, response_len),
+		      GFP_KERNEL);
+	if (!msg)
+		return -ENOMEM;
 
 	result = ec_i2c_construct_message(msg->data, i2c_msgs, num, bus_num);
 	if (result) {
@@ -243,8 +229,7 @@ static int ec_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg i2c_msgs[],
 	/* Indicate success by saying how many messages were sent */
 	result = num;
 exit:
-	if (alloc_size)
-		kfree(msg);
+	kfree(msg);
 	return result;
 }
 
