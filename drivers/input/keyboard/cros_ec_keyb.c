@@ -151,6 +151,7 @@ static int cros_ec_keyb_get_state(struct cros_ec_keyb *ckdev, uint8_t *kb_state)
 	int ret;
 	struct cros_ec_command *msg = (struct cros_ec_command *)kb_state;
 
+	msg->version = 0;
 	msg->command = EC_CMD_MKBP_STATE;
 	msg->insize = ckdev->cols;
 	msg->outsize = 0;
