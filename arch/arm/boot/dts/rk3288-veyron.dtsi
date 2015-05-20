@@ -121,6 +121,8 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&bt_enable_l>;
 		regulator-name = "bt_regulator";
+		regulator-always-on;
+		regulator-boot-on;
 	};
 
 	wifi_regulator: wifi-regulator {
@@ -137,6 +139,8 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&wifi_enable_h>;
 		regulator-name = "wifi_regulator";
+		regulator-always-on;
+		regulator-boot-on;
 
 		/* Faux input supply.  See bt_regulator description. */
 		vin-supply = <&bt_regulator>;
@@ -154,6 +158,12 @@
 		gpio30-supply = <&vcc33_io>;
 		lcdc-supply = <&vcc33_lcd>;
 		wifi-supply = <&vcc18_wl>;
+	};
+
+	sdio_pwrseq: sdio-pwrseq {
+		compatible = "mmc-pwrseq-simple";
+		clocks = <&rk808 RK808_CLKOUT1>;
+		clock-names = "ext_clock";
 	};
 };
 
@@ -177,22 +187,19 @@
 	broken-cd;
 	bus-width = <4>;
 	cap-sd-highspeed;
-	sd-uhs-sdr12;
-	sd-uhs-sdr25;
-	sd-uhs-sdr50;
-	sd-uhs-sdr104;
+//	sd-uhs-sdr12;
+//	sd-uhs-sdr25;
+//	sd-uhs-sdr50;
+//	sd-uhs-sdr104;
 	cap-sdio-irq;
-	card-external-vcc-supply = <&wifi_regulator>;
-	clocks = <&cru HCLK_SDIO0>, <&cru SCLK_SDIO0>, <&cru SCLK_SDIO0_DRV>,
-		 <&cru SCLK_SDIO0_SAMPLE>, <&rk808 RK808_CLKOUT1>;
-	clock-names = "biu", "ciu", "ciu_drv", "ciu_sample", "card_ext_clock";
 	keep-power-in-suspend;
 	non-removable;
 	num-slots = <1>;
-	default-sample-phase = <90>;
+//	default-sample-phase = <90>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&sdio0_clk &sdio0_cmd &sdio0_bus4>;
 	status = "okay";
+	mmc-pwrseq = <&sdio_pwrseq>;
 	vmmc-supply = <&vcc33_sys>;
 	vqmmc-supply = <&vcc18_wl>;
 };
