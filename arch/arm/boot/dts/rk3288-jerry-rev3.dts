@@ -169,18 +169,12 @@
 	pinctrl-0 = <&i2c4_xfer &trackpad_int>;
 
 	trackpad@15 {
-		compatible = "elan,i2c_touchpad";
-		interrupt-parent = <&gpio7>;
-		interrupts = <3 IRQ_TYPE_EDGE_FALLING>;
 		/*
 		 * Remove the inherited pinctrl settings to avoid clashing
 		 * with bus-wide ones.
 		 */
 		/delete-property/pinctrl-names;
 		/delete-property/pinctrl-0;
-		reg = <0x15>;
-		vcc-supply = <&vcc33_io>;
-		wakeup-source;
 	};
 
 	trackpad@2c {
