@@ -597,7 +597,7 @@ static void rockchip_drm_encoder_prepare(struct drm_encoder *encoder)
 	else
 		val = EDP_SEL_VOP_LIT << 16;
 
-	dev_info(edp->dev, "vop %s output to edp\n",
+	dev_dbg(edp->dev, "vop %s output to edp\n",
 		 (ret) ? "LIT" : "BIG");
 
 	ret = regmap_write(edp->grf, EDP_VOP_SEL, val);
