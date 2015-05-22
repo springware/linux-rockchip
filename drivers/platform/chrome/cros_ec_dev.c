@@ -27,8 +27,6 @@
 
 /* Device variables */
 #define CROS_MAX_DEV 128
-/* Most EC commands size is ~64 bytes so allocate a buffer for the usual case */
-#define PREALLOC_SIZE 64
 static int ec_major;
 
 static const struct attribute_group *cros_ec_groups[] = {
@@ -51,10 +49,12 @@ static int ec_get_version(struct cros_ec_dev *ec, char *str, int maxlen)
 		"unknown", "read-only", "read-write", "invalid",
 	};
 	struct cros_ec_command *msg;
-	u8 buf[sizeof(*msg) + sizeof(*resp)];
 	int ret;
 
-	msg = (struct cros_ec_command *)buf;
+	msg = kmalloc(sizeof(*msg) + sizeof(*resp), GFP_KERNEL);
+	if (!msg)
+		return -ENOMEM;
+
 	msg->version = 0;
 	msg->command = EC_CMD_GET_VERSION;
 	msg->insize = sizeof(*resp);
@@ -62,13 +62,14 @@ static int ec_get_version(struct cros_ec_dev *ec, char *str, int maxlen)
 
 	ret = cros_ec_cmd_xfer(ec->ec_dev, msg);
 	if (ret < 0)
-		return ret;
+		goto exit;
 
 	if (msg->result != EC_RES_SUCCESS) {
 		snprintf(str, maxlen,
 			 "%s\nUnknown EC version: EC returned %d\n",
 			 CROS_EC_DEV_VERSION, msg->result);
-		return -EINVAL;
+		ret = -EINVAL;
+		goto exit;
 	}
 
 	resp = (struct ec_response_get_version *)msg->data;
@@ -79,7 +80,10 @@ static int ec_get_version(struct cros_ec_dev *ec, char *str, int maxlen)
 		 resp->version_string_ro, resp->version_string_rw,
 		 current_image_name[resp->current_image]);
 
-	return 0;
+	ret = 0;
+exit:
+	kfree(msg);
+	return ret;
 }
 
 /* Device file ops */
@@ -126,24 +130,16 @@ static ssize_t ec_device_read(struct file *filp, char __user *buffer,
 static long ec_device_ioctl_xcmd(struct cros_ec_dev *ec, void __user *arg)
 {
 	long ret;
-	int alloc_size;
 	struct cros_ec_command u_cmd;
 	struct cros_ec_command *s_cmd;
-	u8 buf[sizeof(*s_cmd) + PREALLOC_SIZE];
 
 	if (copy_from_user(&u_cmd, arg, sizeof(u_cmd)))
 		return -EFAULT;
 
-	alloc_size = max(u_cmd.outsize, u_cmd.insize);
-
-	if (alloc_size > PREALLOC_SIZE) {
-		s_cmd = kzalloc(sizeof(*s_cmd) + alloc_size, GFP_KERNEL);
-		if (!s_cmd)
-			return -ENOMEM;
-	} else {
-		s_cmd = (struct cros_ec_command *)buf;
-		alloc_size = 0;
-	}
+	s_cmd = kmalloc(sizeof(*s_cmd) + max(u_cmd.outsize, u_cmd.insize),
+			GFP_KERNEL);
+	if (!s_cmd)
+		return -ENOMEM;
 
 	if (copy_from_user(s_cmd, arg, sizeof(*s_cmd) + u_cmd.outsize)) {
 		ret = -EFAULT;
@@ -159,8 +155,7 @@ static long ec_device_ioctl_xcmd(struct cros_ec_dev *ec, void __user *arg)
 	if (copy_to_user(arg, s_cmd, sizeof(*s_cmd) + u_cmd.insize))
 		ret = -EFAULT;
 exit:
-	if (alloc_size)
-		kfree(s_cmd);
+	kfree(s_cmd);
 	return ret;
 }
 

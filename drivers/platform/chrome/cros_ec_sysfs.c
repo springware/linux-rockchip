@@ -69,14 +69,16 @@ static ssize_t store_ec_reboot(struct device *dev,
 	};
 	struct cros_ec_command *msg;
 	struct ec_params_reboot_ec *param;
-	u8 msg_buf[sizeof(*msg) + sizeof(*param)] = { 0 };
 	int got_cmd = 0, offset = 0;
 	int i;
 	int ret;
 	struct cros_ec_dev *ec = container_of(dev,
 					      struct cros_ec_dev, class_dev);
 
-	msg = (struct cros_ec_command *)msg_buf;
+	msg = kmalloc(sizeof(*msg) + sizeof(*param), GFP_KERNEL);
+	if (!msg)
+		return -ENOMEM;
+
 	param = (struct ec_params_reboot_ec *)msg->data;
 
 	param->flags = 0;
@@ -105,19 +107,26 @@ static ssize_t store_ec_reboot(struct device *dev,
 			offset++;
 	}
 
-	if (!got_cmd)
-		return -EINVAL;
-
-	msg->command = EC_CMD_REBOOT_EC + ec->cmd_offset;
-	msg->outsize = sizeof(*param);
-	ret = cros_ec_cmd_xfer(ec->ec_dev, msg);
-	if (ret < 0)
-		return ret;
-	if (msg->result != EC_RES_SUCCESS) {
-		dev_dbg(&ec->class_dev, "EC result %d\n", msg->result);
-		return -EINVAL;
+	if (!got_cmd) {
+		count = -EINVAL;
+		goto exit;
 	}
 
+	msg->version = 0;
+	msg->command = EC_CMD_REBOOT_EC + ec->cmd_offset;
+	msg->outsize = sizeof(*param);
+	msg->insize = 0;
+	ret = cros_ec_cmd_xfer(ec->ec_dev, msg);
+	if (ret < 0) {
+		count = ret;
+		goto exit;
+	}
+	if (msg->result != EC_RES_SUCCESS) {
+		dev_dbg(ec->dev, "EC result %d\n", msg->result);
+		count = -EINVAL;
+	}
+exit:
+	kfree(msg);
 	return count;
 }
 
@@ -129,23 +138,30 @@ static ssize_t show_ec_version(struct device *dev,
 	struct ec_response_get_chip_info *r_chip;
 	struct ec_response_board_version *r_board;
 	struct cros_ec_command *msg;
-	u8 msg_buf[sizeof(*msg) + EC_HOST_PARAM_SIZE] = { 0 };
 	int ret;
 	int count = 0;
 	struct cros_ec_dev *ec = container_of(dev,
 					      struct cros_ec_dev, class_dev);
 
-	msg = (struct cros_ec_command *)msg_buf;
+	msg = kmalloc(sizeof(*msg) + EC_HOST_PARAM_SIZE, GFP_KERNEL);
+	if (!msg)
+		return -ENOMEM;
 
 	/* Get versions. RW may change. */
+	msg->version = 0;
 	msg->command = EC_CMD_GET_VERSION + ec->cmd_offset;
 	msg->insize = sizeof(*r_ver);
+	msg->outsize = 0;
 	ret = cros_ec_cmd_xfer(ec->ec_dev, msg);
-	if (ret < 0)
-		return ret;
-	if (msg->result != EC_RES_SUCCESS)
-		return scnprintf(buf, PAGE_SIZE,
-				 "ERROR: EC returned %d\n", msg->result);
+	if (ret < 0) {
+		count = ret;
+		goto exit;
+	}
+	if (msg->result != EC_RES_SUCCESS) {
+		count = scnprintf(buf, PAGE_SIZE,
+				  "ERROR: EC returned %d\n", msg->result);
+		goto exit;
+	}
 
 	r_ver = (struct ec_response_get_version *)msg->data;
 	/* Strings should be null-terminated, but let's be sure. */
@@ -218,6 +234,8 @@ static ssize_t show_ec_version(struct device *dev,
 				   r_board->board_version);
 	}
 
+exit:
+	kfree(msg);
 	return count;
 }
 
@@ -229,27 +247,35 @@ static ssize_t show_ec_flashinfo(struct device *dev,
 	int ret;
 	struct cros_ec_dev *ec = container_of(dev,
 					      struct cros_ec_dev, class_dev);
-	u8 msg_buf[sizeof(*msg) + sizeof(*resp)] = { 0 };
 
-	msg = (struct cros_ec_command *)msg_buf;
+	msg = kmalloc(sizeof(*msg) + sizeof(*resp), GFP_KERNEL);
+	if (!msg)
+		return -ENOMEM;
 
 	/* The flash info shouldn't ever change, but ask each time anyway. */
+	msg->version = 0;
 	msg->command = EC_CMD_FLASH_INFO + ec->cmd_offset;
 	msg->insize = sizeof(*resp);
+	msg->outsize = 0;
 	ret = cros_ec_cmd_xfer(ec->ec_dev, msg);
 	if (ret < 0)
-		return ret;
-	if (msg->result != EC_RES_SUCCESS)
-		return scnprintf(buf, PAGE_SIZE,
-				 "ERROR: EC returned %d\n", msg->result);
+		goto exit;
+	if (msg->result != EC_RES_SUCCESS) {
+		ret = scnprintf(buf, PAGE_SIZE,
+				"ERROR: EC returned %d\n", msg->result);
+		goto exit;
+	}
 
 	resp = (struct ec_response_flash_info *)msg->data;
 
-	return scnprintf(buf, PAGE_SIZE,
-			 "FlashSize %d\nWriteSize %d\n"
-			 "EraseSize %d\nProtectSize %d\n",
-			 resp->flash_size, resp->write_block_size,
-			 resp->erase_block_size, resp->protect_block_size);
+	ret = scnprintf(buf, PAGE_SIZE,
+			"FlashSize %d\nWriteSize %d\n"
+			"EraseSize %d\nProtectSize %d\n",
+			resp->flash_size, resp->write_block_size,
+			resp->erase_block_size, resp->protect_block_size);
+exit:
+	kfree(msg);
+	return ret;
 }
 
 /* Module initialization */

@@ -41,21 +41,6 @@
 #define EC_MAX_RESPONSE_OVERHEAD	2
 
 /*
- * The EC is unresponsive for a time after a reboot command.  Add a
- * simple delay to make sure that the bus stays locked.
- */
-#define EC_REBOOT_DELAY_MS             50
-
-/*
- * Max bus-specific overhead incurred by request/responses.
- * I2C requires 1 additional byte for requests.
- * I2C requires 2 additional bytes for responses.
- * */
-#define EC_PROTO_VERSION_UNKNOWN	0
-#define EC_MAX_REQUEST_OVERHEAD		1
-#define EC_MAX_RESPONSE_OVERHEAD	2
-
-/*
  * Command interface between EC and AP, for LPC, I2C and SPI interfaces.
  */
 enum {
@@ -258,6 +243,14 @@ int cros_ec_remove(struct cros_ec_device *ec_dev);
  * @return 0 if ok, -ve on error
  */
 int cros_ec_register(struct cros_ec_device *ec_dev);
+
+/**
+ * cros_ec_register -  Query the protocol version supported by the ChromeOS EC
+ *
+ * @ec_dev: Device to register
+ * @return 0 if ok, -ve on error
+ */
+int cros_ec_query_all(struct cros_ec_device *ec_dev);
 
 /* sysfs stuff */
 extern struct attribute_group cros_ec_attr_group;
