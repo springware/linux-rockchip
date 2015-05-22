@@ -148,8 +148,12 @@ static void cros_ec_keyb_process(struct cros_ec_keyb *ckdev,
 
 static int cros_ec_keyb_get_state(struct cros_ec_keyb *ckdev, uint8_t *kb_state)
 {
-	int ret;
-	struct cros_ec_command *msg = (struct cros_ec_command *)kb_state;
+	int ret = 0;
+	struct cros_ec_command *msg;
+
+	msg = kmalloc(sizeof(*msg) + ckdev->cols, GFP_KERNEL);
+	if (!msg)
+		return -ENOMEM;
 
 	msg->version = 0;
 	msg->command = EC_CMD_MKBP_STATE;
@@ -159,12 +163,13 @@ static int cros_ec_keyb_get_state(struct cros_ec_keyb *ckdev, uint8_t *kb_state)
 	ret = cros_ec_cmd_xfer(ckdev->ec, msg);
 	if (ret < 0) {
 		dev_err(ckdev->dev, "Error transferring EC message %d\n", ret);
-		return ret;
+		goto exit;
 	}
 
 	memcpy(kb_state, msg->data, ckdev->cols);
-
-	return 0;
+exit:
+	kfree(msg);
+	return ret;
 }
 
 static irqreturn_t cros_ec_keyb_irq(int irq, void *data)
@@ -172,7 +177,7 @@ static irqreturn_t cros_ec_keyb_irq(int irq, void *data)
 	struct cros_ec_keyb *ckdev = data;
 	struct cros_ec_device *ec = ckdev->ec;
 	int ret;
-	uint8_t kb_state[sizeof(struct cros_ec_command) + ckdev->cols];
+	uint8_t kb_state[ckdev->cols];
 
 	if (device_may_wakeup(ec->dev))
 		pm_wakeup_event(ec->dev, 0);
