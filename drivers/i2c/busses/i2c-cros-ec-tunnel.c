@@ -17,12 +17,6 @@
 #include <linux/slab.h>
 
 #define I2C_MAX_RETRIES 3
-/*
- * I2C commands are generally very small so 32 bytes is in
- * most cases enough to hold the EC command headers and
- * payload. Pre-allocate a buffer for these common cases.
- */
-#define PREALLOC_SIZE 32
 
 /**
  * struct ec_i2c_device - Driver data for I2C tunnel

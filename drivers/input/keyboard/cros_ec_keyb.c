@@ -177,7 +177,7 @@ static irqreturn_t cros_ec_keyb_irq(int irq, void *data)
 	struct cros_ec_keyb *ckdev = data;
 	struct cros_ec_device *ec = ckdev->ec;
 	int ret;
-	uint8_t kb_state[sizeof(struct cros_ec_command) + ckdev->cols];
+	uint8_t kb_state[ckdev->cols];
 
 	if (device_may_wakeup(ec->dev))
 		pm_wakeup_event(ec->dev, 0);
