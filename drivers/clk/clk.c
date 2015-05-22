@@ -1122,7 +1122,7 @@ static struct clk_core *__clk_set_parent_before(struct clk_core *core,
 		clk_core_prepare(parent);
 		flags = clk_enable_lock();
 		clk_core_enable(parent);
-		clk_core_enable(clk);
+		clk_core_enable(core);
 		clk_enable_unlock(flags);
 	}
 
@@ -1175,14 +1175,9 @@ static int __clk_set_parent(struct clk_core *core, struct clk_core *parent,
 		clk_reparent(core, old_parent);
 		clk_enable_unlock(flags);
 
-<<<<<<< HEAD
 		if (core->prepare_count) {
-			clk_core_disable(core);
-=======
-		if (clk->prepare_count) {
 			flags = clk_enable_lock();
-			clk_core_disable(clk);
->>>>>>> master
+			clk_core_disable(core);
 			clk_core_disable(parent);
 			clk_enable_unlock(flags);
 			clk_core_unprepare(parent);
