@@ -18,6 +18,14 @@
 		     "google,veyron", "rockchip,rk3288";
 };
 
+&gpio_keys {
+	pinctrl-0 = <&pwr_key_h &ap_lid_int_l>;
+
+	power {
+		gpios = <&gpio0 5 GPIO_ACTIVE_HIGH>;
+	};
+};
+
 /* Touchpad connector */
 &i2c3 {
 	status = "okay";
@@ -46,6 +54,12 @@
 };
 
 &pinctrl {
+	buttons {
+		pwr_key_h: pwr-key-h {
+			rockchip,pins = <0 5 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+	};
+
 	sdmmc {
 		sdmmc_wp_gpio: sdmmc-wp-gpio {
 			rockchip,pins = <7 10 RK_FUNC_GPIO &pcfg_pull_up>;
