@@ -60,3 +60,8 @@
 		};
 	};
 };
+
+&tsadc {
+	/* Some connection is flaky making the tsadc hang the system */
+	status = "disabled";
+};
