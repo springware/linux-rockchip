@@ -23,8 +23,6 @@
 			regulator-max-microvolt = <3300000>;
 			regulator-name = "vccio_sd";
 			regulator-suspend-mem-disabled;
-			regulator-always-on;
-			regulator-boot-on;
 		};
 
 		vcc33_sd: LDO_REG5 {
@@ -32,8 +30,6 @@
 			regulator-max-microvolt = <3300000>;
 			regulator-name = "vcc33_sd";
 			regulator-suspend-mem-disabled;
-			regulator-always-on;
-			regulator-boot-on;
 		};
 	};
 };

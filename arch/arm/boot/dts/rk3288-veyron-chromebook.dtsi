@@ -23,6 +23,7 @@
 };
 
 #include "rk3288-veyron.dtsi"
+#include "rk3288-veyron-analog-audio.dtsi"
 #include "rk3288-veyron-edp.dtsi"
 #include "rk3288-veyron-sdmmc.dtsi"
 
@@ -32,7 +33,7 @@
 	};
 
 	gpio_keys: gpio-keys {
-		pinctrl-0 = <&pwr_key_h &ap_lid_int_l>;
+		pinctrl-0 = <&pwr_key_l &ap_lid_int_l>;
 		lid {
 			label = "Lid";
 			gpios = <&gpio0 6 GPIO_ACTIVE_LOW>;
@@ -179,12 +180,6 @@
 	cros-ec {
 		ec_int: ec-int {
 			rockchip,pins = <7 7 RK_FUNC_GPIO &pcfg_pull_none>;
-		};
-	};
-
-	sdmmc {
-		sdmmc_wp_gpio: sdmmc-wp-gpio {
-			rockchip,pins = <7 10 RK_FUNC_GPIO &pcfg_pull_up>;
 		};
 	};
 

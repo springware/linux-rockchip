@@ -20,8 +20,9 @@
 	firmware {
 		chromeos {
 			pinctrl-names = "default";
-			pinctrl-0 = <&fw_wp_ap>;
+			pinctrl-0 = <&fw_wp_ap &rec_mode_l>;
 			write-protect-gpio = <&gpio7 6 GPIO_ACTIVE_LOW>;
+			recovery-switch = <&gpio0 9 GPIO_ACTIVE_LOW>;
 		};
 	};
 
@@ -31,10 +32,10 @@
 		#size-cells = <0>;
 
 		pinctrl-names = "default";
-		pinctrl-0 = <&pwr_key_h>;
+		pinctrl-0 = <&pwr_key_l>;
 		power {
 			label = "Power";
-			gpios = <&gpio0 5 GPIO_ACTIVE_HIGH>;
+			gpios = <&gpio0 5 GPIO_ACTIVE_LOW>;
 			linux,code = <KEY_POWER>;
 			debounce-interval = <100>;
 			gpio-key,wakeup;
@@ -47,18 +48,6 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&ap_warm_reset_h>;
 		priority = /bits/ 8 <200>;
-	};
-
-	sound {
-		compatible = "rockchip,rockchip-audio-max98090";
-		rockchip,model = "ROCKCHIP-I2S";
-		rockchip,i2s-controller = <&i2s>;
-		rockchip,audio-codec = <&max98090>;
-		rockchip,hp-det-gpios = <&gpio6 5 GPIO_ACTIVE_HIGH>;
-		rockchip,mic-det-gpios = <&gpio6 11 GPIO_ACTIVE_LOW>;
-		rockchip,headset-codec = <&headsetcodec>;
-		pinctrl-names = "default";
-		pinctrl-0 = <&mic_det>, <&hp_det>;
 	};
 
 /*	vdd_logic: pwm-regulator {
@@ -146,7 +135,6 @@
 		compatible = "rockchip,rk3288-io-voltage-domain";
 		rockchip,grf = <&grf>;
 
-		audio-supply = <&vcc18_codec>;
 		bb-supply = <&vcc33_io>;
 		dvp-supply = <&vcc_18>;
 		flash0-supply = <&vcc18_flashio>;
@@ -235,7 +223,6 @@
 		vcc6-supply = <&vcc_5v>;
 		vcc7-supply = <&vcc33_sys>;
 		vcc8-supply = <&vcc33_sys>;
-		vcc10-supply = <&vcc33_sys>;
 		vcc12-supply = <&vcc_18>;
 
 		vddio-supply = <&vcc33_io>;
@@ -309,15 +296,6 @@
 				regulator-suspend-mem-microvolt = <1000000>;
 			};
 
-			vcc18_codec: LDO_REG6 {
-				regulator-always-on;
-				regulator-boot-on;
-				regulator-min-microvolt = <1800000>;
-				regulator-max-microvolt = <1800000>;
-				regulator-name = "vcc18_codec";
-				regulator-suspend-mem-disabled;
-			};
-
 			vdd10_lcd_pwren_h: LDO_REG7 {
 				regulator-always-on;
 				regulator-boot-on;
@@ -358,15 +336,6 @@
 	clock-frequency = <100000>;
 	i2c-scl-falling-time-ns = <50>;		/* 10ns measured */
 	i2c-scl-rising-time-ns = <800>;		/* 600ns measured */
-
-	max98090: max98090@10 {
-		compatible = "maxim,max98090";
-		reg = <0x10>;
-		interrupt-parent = <&gpio6>;
-		interrupts = <7 IRQ_TYPE_EDGE_FALLING>;
-		pinctrl-names = "default";
-		pinctrl-0 = <&int_codec>;
-	};
 };
 
 &i2c4 {
@@ -375,16 +344,6 @@
 	clock-frequency = <400000>;
 	i2c-scl-falling-time-ns = <50>;		/* 11ns measured */
 	i2c-scl-rising-time-ns = <300>;		/* 225ns measured */
-
-	headsetcodec: ts3a227e@3b {
-		compatible = "ti,ts3a227e";
-		reg = <0x3b>;
-		interrupt-parent = <&gpio0>;
-		interrupts = <3 IRQ_TYPE_LEVEL_LOW>;
-		pinctrl-names = "default";
-		pinctrl-0 = <&ts3a227e_int_l>;
-		ti,micbias = <7>;		/* MICBIAS = 2.8V */
-	};
 };
 
 &i2c5 {
@@ -445,11 +404,11 @@
 	status = "okay";
 };
 
-/*&tsadc {
-	tsadc-tshut-mode = <1>; // tshut mode 0:CRU 1:GPIO
-	tsadc-tshut-polarity = <1>; // tshut polarity 0:LOW 1:HIGH
+&tsadc {
+	tsadc-tshut-mode = <1>; /* tshut mode 0:CRU 1:GPIO */
+	tsadc-tshut-polarity = <1>; /* tshut polarity 0:LOW 1:HIGH */
 	status = "okay";
-};*/
+};
 
 &pinctrl {
 	pinctrl-names = "default", "sleep";
@@ -473,6 +432,7 @@
 	>;
 
 	pcfg_pull_none_drv_8ma: pcfg-pull-none-drv-8ma {
+		bias-disable;
 		drive-strength = <8>;
 	};
 
@@ -490,27 +450,8 @@
 	};
 
 	buttons {
-		pwr_key_h: pwr-key-h {
-			rockchip,pins = <0 5 RK_FUNC_GPIO &pcfg_pull_none>;
-		};
-	};
-
-	codec {
-		hp_det: hp-det {
-			rockchip,pins = <6 5 RK_FUNC_GPIO &pcfg_pull_up>;
-		};
-
-		/*
-		 * HACK: We're going to _pull down_ this _active low_ interrupt
-		 * so that it never fires.  We don't need this interrupt because
-		 * we've got a ts3a227e chip but the driver requires it.
-		 */
-		int_codec: int-codec {
-			rockchip,pins = <6 7 RK_FUNC_GPIO &pcfg_pull_down>;
-		};
-
-		mic_det: mic-det {
-			rockchip,pins = <6 11 RK_FUNC_GPIO &pcfg_pull_up>;
+		pwr_key_l: pwr-key-l {
+			rockchip,pins = <0 5 RK_FUNC_GPIO &pcfg_pull_up>;
 		};
 	};
 
@@ -541,12 +482,6 @@
 					<3 5 RK_FUNC_2 &pcfg_pull_none_drv_8ma>,
 					<3 6 RK_FUNC_2 &pcfg_pull_none_drv_8ma>,
 					<3 7 RK_FUNC_2 &pcfg_pull_none_drv_8ma>;
-		};
-	};
-
-	headset {
-		ts3a227e_int_l: ts3a227e-int-l {
-			rockchip,pins = <0 3 RK_FUNC_GPIO &pcfg_pull_up>;
 		};
 	};
 
@@ -612,16 +547,34 @@
 		};
 	};
 
+	/*
+	 * On Marvell-based hardware this is a no-connect.  Make sure we enable
+	 * the pullup so that the line doesn't float.  The pullup shouldn't
+	 * hurt on Broadcom-based hardware since the other side is actively
+	 * driving this signal.  As proof: we've already got a pullup on RX.
+	 */
+	uart0 {
+		uart0_cts: uart0-cts {
+			rockchip,pins = <4 18 RK_FUNC_1 &pcfg_pull_up>;
+		};
+	};
+
 	write-protect {
 		fw_wp_ap: fw-wp-ap {
 			rockchip,pins = <7 6 RK_FUNC_GPIO &pcfg_pull_none>;
 		};
 	};
+
+	recovery-switch {
+		rec_mode_l: rec-mode-l {
+			rockchip,pins = <0 9 RK_FUNC_GPIO &pcfg_pull_up>;
+		};
+	};
 };
 
-/*&usbphy {
+&usbphy {
 	status = "okay";
-};*/
+};
 
 &usb_host0_ehci {
 	status = "okay";
